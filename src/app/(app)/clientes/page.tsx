@@ -51,12 +51,12 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
           acao={!busca && <BotaoLink href="/clientes/novo">Cadastrar cliente</BotaoLink>}
         />
       ) : (
-        <Cartao className="divide-y divide-zinc-100">
+        <Cartao className="divide-y divide-borda-suave">
           {clientes.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/clientes/${c.id}`} className="font-medium text-zinc-900 hover:text-rose-700">
+                  <Link href={`/clientes/${c.id}`} className="font-medium text-texto hover:text-marca">
                     {c.nome}
                   </Link>
                   {c.alergias && <Etiqueta tom="alerta">alergia</Etiqueta>}
@@ -66,7 +66,7 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
                     </Etiqueta>
                   )}
                 </div>
-                <p className="mt-0.5 truncate text-sm text-zinc-500">
+                <p className="mt-0.5 truncate text-sm text-texto-fraco">
                   {formatarTelefone(c.telefone)}
                   {c.tomPele && ` · ${c.tomPele}`}
                 </p>
@@ -76,7 +76,7 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
                 href={linkWhatsApp(c.telefone, `Oi, ${c.nome.split(" ")[0]}!`)}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+                className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
               >
                 WhatsApp
               </a>

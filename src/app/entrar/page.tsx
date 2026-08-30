@@ -11,10 +11,10 @@ export default async function PaginaEntrar() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-center text-2xl font-semibold tracking-tight text-rose-700">
+        <h1 className="mb-1 text-center text-2xl font-semibold tracking-tight text-marca">
           Agenda
         </h1>
-        <p className="mb-6 text-center text-sm text-zinc-500">
+        <p className="mb-6 text-center text-sm text-texto-fraco">
           Sistema privado. Entre para continuar.
         </p>
 

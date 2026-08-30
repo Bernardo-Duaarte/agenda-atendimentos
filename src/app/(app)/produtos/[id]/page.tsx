@@ -47,29 +47,29 @@ export default async function PaginaProduto(props: PageProps<"/produtos/[id]">) 
     <>
       <Titulo>{produto.nome}</Titulo>
 
-      <div className="mb-6 flex flex-wrap items-center gap-x-10 gap-y-3 rounded-xl border border-zinc-200 bg-white px-6 py-5 shadow-sm">
+      <div className="mb-6 flex flex-wrap items-center gap-x-10 gap-y-3 rounded-xl border border-borda bg-superficie px-6 py-5 shadow-sm">
         <div>
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Em estoque</p>
-          <p className={`text-2xl font-semibold ${saldo <= minimo ? "text-amber-600" : "text-zinc-900"}`}>
+          <p className="text-xs uppercase tracking-wide text-texto-fraco">Em estoque</p>
+          <p className={`text-2xl font-semibold ${saldo <= minimo ? "text-atencao" : "text-texto"}`}>
             {formatarQuantidade(saldo, produto.unidade)}
           </p>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-texto-fraco">
             ≈ {formatarQuantidade(conteudo > 0 ? saldo / conteudo : 0)} embalagem(ns)
           </p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Custo por {produto.unidade}</p>
-          <p className="text-2xl font-semibold text-zinc-900">
+          <p className="text-xs uppercase tracking-wide text-texto-fraco">Custo por {produto.unidade}</p>
+          <p className="text-2xl font-semibold text-texto">
             {formatarReal(produto.custoUnitarioCentavos)}
           </p>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-texto-fraco">
             {formatarReal(precoEmbalagem)} por {formatarQuantidade(conteudo, produto.unidade)}
           </p>
         </div>
         {produto.validade && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-400">Validade</p>
-            <p className="text-2xl font-semibold text-zinc-900">{dataCurta(produto.validade)}</p>
+            <p className="text-xs uppercase tracking-wide text-texto-fraco">Validade</p>
+            <p className="text-2xl font-semibold text-texto">{dataCurta(produto.validade)}</p>
           </div>
         )}
         {saldo <= minimo && <Etiqueta tom="alerta">abaixo do mínimo</Etiqueta>}
@@ -79,29 +79,29 @@ export default async function PaginaProduto(props: PageProps<"/produtos/[id]">) 
         <FormularioMovimento acao={lancarMovimento} produtoId={produto.id} unidade={produto.unidade} />
       </div>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Histórico</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">Histórico</h2>
       {produto.movimentos.length === 0 ? (
-        <p className="mb-8 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 px-5 py-8 text-center text-sm text-zinc-500">
+        <p className="mb-8 rounded-xl border border-dashed border-borda bg-superficie-suave/50 px-5 py-8 text-center text-sm text-texto-fraco">
           Nenhum movimento ainda.
         </p>
       ) : (
-        <Cartao className="mb-8 divide-y divide-zinc-100">
+        <Cartao className="mb-8 divide-y divide-borda-suave">
           {produto.movimentos.map((m) => {
             const qtd = Number(m.quantidade);
             return (
               <div key={m.id} className="flex items-center gap-4 px-5 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-zinc-800">
+                  <p className="text-sm font-medium text-texto">
                     {ROTULO_TIPO[m.tipo]}
                     {m.agendamento && ` · ${m.agendamento.cliente.nome}`}
                     {m.custoTotalCentavos !== null && ` · ${formatarReal(m.custoTotalCentavos)}`}
                   </p>
-                  <p className="truncate text-xs text-zinc-500">
+                  <p className="truncate text-xs text-texto-fraco">
                     {dataCurta(m.criadoEm)}
                     {m.observacao && ` · ${m.observacao}`}
                   </p>
                 </div>
-                <p className={`font-mono text-sm font-medium ${qtd < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                <p className={`font-mono text-sm font-medium ${qtd < 0 ? "text-perigo" : "text-positivo"}`}>
                   {qtd > 0 ? "+" : ""}
                   {formatarQuantidade(qtd)}
                 </p>
@@ -111,7 +111,7 @@ export default async function PaginaProduto(props: PageProps<"/produtos/[id]">) 
         </Cartao>
       )}
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Editar cadastro</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">Editar cadastro</h2>
       <FormularioProduto
         acao={atualizarProduto}
         produto={{

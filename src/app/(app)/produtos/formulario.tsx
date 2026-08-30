@@ -68,8 +68,8 @@ export function FormularioProduto({
 
       <Cartao className="space-y-5 p-6">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Como você compra</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Como você compra</h2>
+          <p className="mt-1 text-sm text-texto-fraco">
             Preencha do jeito que está na embalagem. O custo de cada {unidade} sai da divisão — é
             esse número que diz quanto de produto vai embora em cada atendimento.
           </p>
@@ -136,7 +136,7 @@ export function FormularioProduto({
 
       <div className="flex items-center gap-3">
         <BotaoSubmit>{produto ? "Salvar alterações" : "Cadastrar produto"}</BotaoSubmit>
-        <Link href="/produtos" className="text-sm font-medium text-zinc-600 hover:text-zinc-900">
+        <Link href="/produtos" className="text-sm font-medium text-texto-suave hover:text-texto">
           Cancelar
         </Link>
       </div>

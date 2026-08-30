@@ -33,16 +33,16 @@ export default async function Inicio() {
 
   return (
     <>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-zinc-900">Início</h1>
-      <p className="mb-8 text-zinc-500">Seus cadastros. A agenda entra aqui em seguida.</p>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-texto">Início</h1>
+      <p className="mb-8 text-texto-fraco">Seus cadastros. A agenda entra aqui em seguida.</p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {atalhos.map((a) => (
           <Link key={a.href} href={a.href} className="group">
-            <Cartao className="h-full p-5 transition group-hover:border-rose-300 group-hover:shadow-md">
-              <p className="text-sm font-medium text-zinc-500">{a.rotulo}</p>
-              <p className="mt-2 text-3xl font-semibold text-zinc-900">{a.valor}</p>
-              <p className={`mt-0.5 text-sm ${a.rotulo === "Produtos" && aRepor > 0 ? "text-amber-600" : "text-zinc-400"}`}>
+            <Cartao className="h-full p-5 transition group-hover:border-marca group-hover:shadow-md">
+              <p className="text-sm font-medium text-texto-fraco">{a.rotulo}</p>
+              <p className="mt-2 text-3xl font-semibold text-texto">{a.valor}</p>
+              <p className={`mt-0.5 text-sm ${a.rotulo === "Produtos" && aRepor > 0 ? "text-atencao" : "text-texto-fraco"}`}>
                 {a.sufixo}
               </p>
             </Cartao>
@@ -51,8 +51,8 @@ export default async function Inicio() {
       </div>
 
       <Cartao className="mt-8 p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Ainda por vir</h2>
-        <ul className="mt-3 space-y-2 text-sm text-zinc-600">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Ainda por vir</h2>
+        <ul className="mt-3 space-y-2 text-sm text-texto-suave">
           <li>Agenda do dia e da semana, com bloqueio de horário considerando o deslocamento</li>
           <li>Criar atendimento e dar baixa no estoque ao concluir</li>
           <li>Lembrete pelo WhatsApp com a mensagem pronta</li>

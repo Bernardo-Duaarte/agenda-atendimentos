@@ -31,7 +31,7 @@ export default async function PaginaServicos() {
           acao={<BotaoLink href="/servicos/novo">Cadastrar serviço</BotaoLink>}
         />
       ) : (
-        <Cartao className="divide-y divide-zinc-100">
+        <Cartao className="divide-y divide-borda-suave">
           {servicos.map((s) => {
             // Custo real do atendimento: o que a ficha técnica consome.
             const custo = s.insumos.reduce(
@@ -45,20 +45,20 @@ export default async function PaginaServicos() {
               <div key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/servicos/${s.id}`} className="font-medium text-zinc-900 hover:text-rose-700">
+                    <Link href={`/servicos/${s.id}`} className="font-medium text-texto hover:text-marca">
                       {s.nome}
                     </Link>
                     <Etiqueta>{s.duracaoMin} min</Etiqueta>
                     {s.insumos.length === 0 && <Etiqueta tom="alerta">sem ficha técnica</Etiqueta>}
                   </div>
-                  <p className="mt-0.5 text-sm text-zinc-500">
+                  <p className="mt-0.5 text-sm text-texto-fraco">
                     {custo > 0
                       ? `Custo ${formatarReal(custo)} · sobram ${formatarReal(margem)} (${percentual}%)`
                       : "Sem produtos na ficha — o custo aparece aqui quando você preencher."}
                   </p>
                 </div>
 
-                <p className="text-lg font-semibold text-zinc-900">{formatarReal(s.precoCentavos)}</p>
+                <p className="text-lg font-semibold text-texto">{formatarReal(s.precoCentavos)}</p>
               </div>
             );
           })}

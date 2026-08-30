@@ -13,7 +13,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  // A barra do Safari no iPhone acompanha o tema junto com a página. Com uma
+  // cor só, o topo ficaria branco em volta de uma tela escura.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
+  // Diz ao navegador que existem os dois temas, para ele desenhar campos de
+  // data, teclado e barra de rolagem na versão certa.
+  colorScheme: "light dark",
   width: "device-width",
   initialScale: 1,
 };

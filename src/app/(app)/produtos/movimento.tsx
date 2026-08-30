@@ -26,10 +26,10 @@ export function FormularioMovimento({
 
   return (
     <Cartao className="p-6">
-      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
         Lançar movimento
       </h2>
-      <p className="mb-5 text-sm text-zinc-500">
+      <p className="mb-5 text-sm text-texto-fraco">
         O consumo dos atendimentos entra sozinho — aqui é só compra, perda e correção.
       </p>
 

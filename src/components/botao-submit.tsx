@@ -19,7 +19,7 @@ export function BotaoSubmit({
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+      className="inline-flex items-center justify-center rounded-lg bg-acao px-5 py-2.5 text-sm font-medium text-acao-texto transition hover:bg-acao-forte disabled:cursor-not-allowed disabled:bg-acao-fraca"
     >
       {pending ? enviando : children}
     </button>

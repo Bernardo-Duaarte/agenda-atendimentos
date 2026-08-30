@@ -38,7 +38,7 @@ export function FormularioCliente({
       {estado.erroGeral && <Aviso>{estado.erroGeral}</Aviso>}
 
       <Cartao className="space-y-5 p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Contato</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Contato</h2>
 
         <Campo rotulo="Nome" erro={erro("nome")}>
           <Entrada name="nome" defaultValue={cliente?.nome} erro={!!erro("nome")} autoFocus placeholder="Maria Silva" />
@@ -71,8 +71,8 @@ export function FormularioCliente({
 
       <Cartao className="space-y-5 p-6">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Ficha técnica</h2>
-          <p className="mt-1 text-sm text-zinc-500">É o que você quer ver antes de começar o atendimento.</p>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Ficha técnica</h2>
+          <p className="mt-1 text-sm text-texto-fraco">É o que você quer ver antes de começar o atendimento.</p>
         </div>
 
         <Campo rotulo="Tom de pele" erro={erro("tomPele")}>
@@ -90,7 +90,7 @@ export function FormularioCliente({
 
       <div className="flex items-center gap-3">
         <BotaoSubmit>{cliente ? "Salvar alterações" : "Cadastrar cliente"}</BotaoSubmit>
-        <Link href="/clientes" className="text-sm font-medium text-zinc-600 hover:text-zinc-900">
+        <Link href="/clientes" className="text-sm font-medium text-texto-suave hover:text-texto">
           Cancelar
         </Link>
       </div>

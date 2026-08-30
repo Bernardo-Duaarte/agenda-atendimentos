@@ -17,9 +17,9 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
 
   return (
     <>
-      <header className="border-b border-zinc-200 bg-white">
+      <header className="border-b border-borda bg-superficie">
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-          <Link href="/" className="text-base font-semibold tracking-tight text-rose-700">
+          <Link href="/" className="text-base font-semibold tracking-tight text-marca">
             Agenda
           </Link>
           <nav className="flex flex-1 gap-1 overflow-x-auto">
@@ -27,7 +27,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
               <Link
                 key={a.href}
                 href={a.href}
-                className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
+                className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave hover:text-texto"
               >
                 {a.rotulo}
               </Link>
@@ -36,7 +36,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
           <form action={sair}>
             <button
               type="submit"
-              className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+              className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-texto-fraco transition hover:bg-superficie-suave hover:text-texto"
             >
               Sair
             </button>

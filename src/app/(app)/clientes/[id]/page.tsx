@@ -28,15 +28,15 @@ export default async function EditarCliente(props: PageProps<"/clientes/[id]">) 
         }}
       />
 
-      <form action={excluirCliente} className="mt-10 border-t border-zinc-200 pt-6">
+      <form action={excluirCliente} className="mt-10 border-t border-borda pt-6">
         <input type="hidden" name="id" value={cliente.id} />
         <button
           type="submit"
-          className="text-sm font-medium text-zinc-500 underline underline-offset-4 transition hover:text-rose-600"
+          className="text-sm font-medium text-texto-fraco underline underline-offset-4 transition hover:text-perigo"
         >
           Excluir esta cliente
         </button>
-        <p className="mt-1 text-xs text-zinc-400">
+        <p className="mt-1 text-xs text-texto-fraco">
           Só é possível excluir quem ainda não tem atendimento registrado.
         </p>
       </form>
