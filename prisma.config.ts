@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 /**
  * Configuração do Prisma CLI (migrate, generate, studio).
@@ -19,6 +19,11 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DIRECT_URL"),
+    // Resolvido de forma tolerante de propósito. `prisma generate` roda no
+    // build da Vercel e não precisa de banco nenhum; com o `env()` estrito, o
+    // build inteiro falhava por falta de uma variável que o app em produção
+    // nunca usa. Quem precisa dela é migrate/studio, e aí a falta aparece na
+    // hora certa, com erro de conexão.
+    url: process.env.DIRECT_URL ?? "",
   },
 });
