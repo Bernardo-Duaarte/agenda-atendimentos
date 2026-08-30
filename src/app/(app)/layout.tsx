@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { exigirSessao } from "@/lib/sessao";
 import { sair } from "@/app/entrar/acoes";
+import { BotaoTema } from "@/components/botao-tema";
 
 const abas = [
   { href: "/", rotulo: "Início" },
@@ -33,6 +34,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
               </Link>
             ))}
           </nav>
+          <BotaoTema />
           <form action={sair}>
             <button
               type="submit"

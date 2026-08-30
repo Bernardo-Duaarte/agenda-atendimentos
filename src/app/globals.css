@@ -1,89 +1,140 @@
 @import "tailwindcss";
 
 /**
- * Paleta em um lugar só.
+ * Paleta em um lugar só, com três estados de tema.
  *
- * As cores são declaradas como variáveis e trocadas por `prefers-color-scheme`,
- * em vez de espalhar variantes `dark:` por cada elemento. Assim o tema muda
- * num ponto, e uma tela nova acompanha o modo do aparelho sem ninguém precisar
- * lembrar de nada.
+ *   sem atributo         -> segue o aparelho
+ *   data-tema="claro"    -> claro, mesmo com o aparelho no escuro
+ *   data-tema="escuro"   -> escuro, mesmo com o aparelho no claro
+ *
+ * As cores do tema escuro são nomeadas UMA vez (--e-*) e apenas atribuídas nos
+ * dois lugares que precisam delas. Assim ajustar um tom continua sendo mexer
+ * em uma linha só — o que se repete é a atribuição, não o valor.
+ *
+ * Poderia ser bem mais curto com a função light-dark() do CSS, mas ela só
+ * existe em iOS 17.5+ e, onde não existe, as cores viram nada — a tela ficaria
+ * ilegível em vez de degradar. Não vale o risco numa ferramenta de trabalho.
  */
 
 :root {
+  /* --- valores do tema escuro --- */
+  --e-fundo: #09090b;
+  --e-superficie: #18181b;
+  --e-superficie-suave: #27272a;
+  --e-campo: #101012;
+  --e-borda: #2f2f35;
+  --e-borda-suave: #27272a;
+  --e-texto: #f4f4f5;
+  --e-texto-suave: #a1a1aa;
+  --e-texto-fraco: #9b9ba4;
+  --e-marca: #fda4af;
+  --e-marca-anel: #4c0519;
+  --e-acao: #e11d48;
+  --e-acao-forte: #f43f5e;
+  --e-acao-fraca: #7f1d3a;
+  --e-perigo: #fb7185;
+  --e-perigo-fundo: #2a0a13;
+  --e-perigo-borda: #7f1d3a;
+  --e-perigo-texto: #fda4af;
+  --e-atencao: #fbbf24;
+  --e-atencao-fundo: #2e1e05;
+  --e-atencao-texto: #fcd34d;
+  --e-positivo: #34d399;
+  --e-positivo-fundo: #052e22;
+  --e-positivo-texto: #6ee7b7;
+
+  /* --- tema claro, aplicado por padrão --- */
   --fundo: #fafafa;
   --superficie: #ffffff;
   --superficie-suave: #f4f4f5;
   --campo: #ffffff;
-
   --borda: #e4e4e7;
   --borda-suave: #f4f4f5;
-
   --texto: #18181b;
   --texto-suave: #52525b;
   --texto-fraco: #70707a;
-
-  /* Rosa da marca: títulos, links, foco */
   --marca: #be123c;
   --marca-anel: #ffe4e6;
-
-  /* Botão de ação */
   --acao: #e11d48;
   --acao-forte: #be123c;
   --acao-fraca: #fda4af;
   --acao-texto: #ffffff;
-
-  /* Estados */
   --perigo: #e11d48;
   --perigo-fundo: #fff1f2;
   --perigo-borda: #fecdd3;
   --perigo-texto: #9f1239;
-
   --atencao: #a75a06;
   --atencao-fundo: #fef3c7;
   --atencao-texto: #92400e;
-
   --positivo: #047857;
   --positivo-fundo: #d1fae5;
   --positivo-texto: #065f46;
+
+  color-scheme: light dark;
 }
 
+/* Aparelho no escuro — vale, a menos que a pessoa tenha pedido claro. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --fundo: #09090b;
-    --superficie: #18181b;
-    --superficie-suave: #27272a;
-    --campo: #101012;
-
-    --borda: #2f2f35;
-    --borda-suave: #27272a;
-
-    --texto: #f4f4f5;
-    --texto-suave: #a1a1aa;
-    --texto-fraco: #9b9ba4;
-
-    /* Rosa mais claro: o tom escuro do modo claro some no fundo preto */
-    --marca: #fda4af;
-    --marca-anel: #4c0519;
-
-    --acao: #e11d48;
-    --acao-forte: #f43f5e;
-    --acao-fraca: #7f1d3a;
-    --acao-texto: #ffffff;
-
-    --perigo: #fb7185;
-    --perigo-fundo: #2a0a13;
-    --perigo-borda: #7f1d3a;
-    --perigo-texto: #fda4af;
-
-    --atencao: #fbbf24;
-    --atencao-fundo: #2e1e05;
-    --atencao-texto: #fcd34d;
-
-    --positivo: #34d399;
-    --positivo-fundo: #052e22;
-    --positivo-texto: #6ee7b7;
+  :root:not([data-tema="claro"]) {
+    --fundo: var(--e-fundo);
+    --superficie: var(--e-superficie);
+    --superficie-suave: var(--e-superficie-suave);
+    --campo: var(--e-campo);
+    --borda: var(--e-borda);
+    --borda-suave: var(--e-borda-suave);
+    --texto: var(--e-texto);
+    --texto-suave: var(--e-texto-suave);
+    --texto-fraco: var(--e-texto-fraco);
+    --marca: var(--e-marca);
+    --marca-anel: var(--e-marca-anel);
+    --acao: var(--e-acao);
+    --acao-forte: var(--e-acao-forte);
+    --acao-fraca: var(--e-acao-fraca);
+    --perigo: var(--e-perigo);
+    --perigo-fundo: var(--e-perigo-fundo);
+    --perigo-borda: var(--e-perigo-borda);
+    --perigo-texto: var(--e-perigo-texto);
+    --atencao: var(--e-atencao);
+    --atencao-fundo: var(--e-atencao-fundo);
+    --atencao-texto: var(--e-atencao-texto);
+    --positivo: var(--e-positivo);
+    --positivo-fundo: var(--e-positivo-fundo);
+    --positivo-texto: var(--e-positivo-texto);
   }
 }
+
+/* Escolha manual do escuro — vence o aparelho no claro. */
+:root[data-tema="escuro"] {
+  --fundo: var(--e-fundo);
+  --superficie: var(--e-superficie);
+  --superficie-suave: var(--e-superficie-suave);
+  --campo: var(--e-campo);
+  --borda: var(--e-borda);
+  --borda-suave: var(--e-borda-suave);
+  --texto: var(--e-texto);
+  --texto-suave: var(--e-texto-suave);
+  --texto-fraco: var(--e-texto-fraco);
+  --marca: var(--e-marca);
+  --marca-anel: var(--e-marca-anel);
+  --acao: var(--e-acao);
+  --acao-forte: var(--e-acao-forte);
+  --acao-fraca: var(--e-acao-fraca);
+  --perigo: var(--e-perigo);
+  --perigo-fundo: var(--e-perigo-fundo);
+  --perigo-borda: var(--e-perigo-borda);
+  --perigo-texto: var(--e-perigo-texto);
+  --atencao: var(--e-atencao);
+  --atencao-fundo: var(--e-atencao-fundo);
+  --atencao-texto: var(--e-atencao-texto);
+  --positivo: var(--e-positivo);
+  --positivo-fundo: var(--e-positivo-fundo);
+  --positivo-texto: var(--e-positivo-texto);
+}
+
+/* O que o navegador desenha sozinho — campo de data, teclado, barra de
+   rolagem — precisa saber da escolha manual também. */
+:root[data-tema="claro"]  { color-scheme: light; }
+:root[data-tema="escuro"] { color-scheme: dark; }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -93,43 +144,27 @@
   --color-superficie: var(--superficie);
   --color-superficie-suave: var(--superficie-suave);
   --color-campo: var(--campo);
-
   --color-borda: var(--borda);
   --color-borda-suave: var(--borda-suave);
-
   --color-texto: var(--texto);
   --color-texto-suave: var(--texto-suave);
   --color-texto-fraco: var(--texto-fraco);
-
   --color-marca: var(--marca);
   --color-marca-anel: var(--marca-anel);
-
   --color-acao: var(--acao);
   --color-acao-forte: var(--acao-forte);
   --color-acao-fraca: var(--acao-fraca);
   --color-acao-texto: var(--acao-texto);
-
   --color-perigo: var(--perigo);
   --color-perigo-fundo: var(--perigo-fundo);
   --color-perigo-borda: var(--perigo-borda);
   --color-perigo-texto: var(--perigo-texto);
-
   --color-atencao: var(--atencao);
   --color-atencao-fundo: var(--atencao-fundo);
   --color-atencao-texto: var(--atencao-texto);
-
   --color-positivo: var(--positivo);
   --color-positivo-fundo: var(--positivo-fundo);
   --color-positivo-texto: var(--positivo-texto);
-}
-
-/**
- * Diz ao navegador que o site tem os dois temas. Sem isto, coisas que o
- * próprio navegador desenha — campos de data, barra de rolagem, teclado do
- * iPhone — continuariam claras dentro de uma tela escura.
- */
-:root {
-  color-scheme: light dark;
 }
 
 body {
