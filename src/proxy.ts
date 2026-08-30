@@ -20,6 +20,10 @@ export function proxy(request: NextRequest) {
   // faria o agendador receber um redirecionamento e o banco dormir.
   if (pathname === "/api/manter-acordado") return NextResponse.next();
 
+  // Calendário assinado: quem busca é o app Calendário do iPhone, que não
+  // manda cookie. A rota se protege pelo token no próprio endereço.
+  if (pathname.startsWith("/api/calendario/")) return NextResponse.next();
+
   if (request.cookies.has("sessao")) return NextResponse.next();
 
   return NextResponse.redirect(new URL("/entrar", request.url));
