@@ -1,0 +1,224 @@
+// Convenções deste schema:
+//
+// 1. Dinheiro é sempre Int em CENTAVOS. Nunca Float — 0.1 + 0.2 != 0.3 em ponto
+//    flutuante, e num relatório de faturamento isso vira centavo sumido.
+// 2. Datas são sempre gravadas em UTC. A conversão para America/Sao_Paulo
+//    acontece só na exibição (ver src/lib/tempo.ts).
+// 3. Estoque NUNCA é um campo editável. O saldo de um produto é a soma dos
+//    MovimentoEstoque dele. Assim sempre dá para responder "por que sumiu base?".
+
+// No Prisma 7 a URL do banco não mora mais aqui — ela fica em prisma.config.ts
+// (para as migrations) e no adaptador de driver em src/lib/prisma.ts (para o app).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LocalAtendimento {
+  ESTUDIO
+  DOMICILIO
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  CONCLUIDO
+  CANCELADO
+  FALTOU // no-show: contabiliza separado de cancelado, é métrica diferente
+}
+
+enum TipoMovimento {
+  ENTRADA // compra de produto
+  CONSUMO // baixa automática ao concluir um atendimento
+  PERDA   // vencimento, quebra, derramou
+  AJUSTE  // correção após contagem manual
+}
+
+model Cliente {
+  id             String    @id @default(cuid())
+  nome           String
+  telefone       String // E.164 sem o '+': 5511999999999
+  email          String?
+  dataNascimento DateTime? @db.Date
+
+  // Ficha técnica da cliente — é o que mais se consulta antes de um atendimento
+  tomPele     String?
+  alergias    String?
+  observacoes String?
+
+  // Endereço usado como sugestão ao criar atendimento em domicílio
+  enderecoPadrao String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  agendamentos Agendamento[]
+
+  @@index([nome])
+  @@index([telefone])
+}
+
+model Servico {
+  id            String  @id @default(cuid())
+  nome          String
+  descricao     String?
+  precoCentavos Int
+  duracaoMin    Int
+  ativo         Boolean @default(true)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  agendamentos Agendamento[]
+  insumos      ServicoProduto[]
+}
+
+model Produto {
+  id      String  @id @default(cuid())
+  nome    String
+  marca   String?
+  unidade String // "ml", "g", "un", "aplicacao"
+
+  /// Quanto vem em UMA embalagem, na unidade acima (35 ml, 12 g, 1 un).
+  /// Existe para você cadastrar do jeito que compra — "frasco de 35 ml por
+  /// R$ 229" — e o sistema fazer a divisão sozinho.
+  conteudoEmbalagem Decimal @db.Decimal(10, 3)
+
+  /// Custo de UMA unidade (1 ml, 1 g, 1 un), em centavos. Você nunca digita
+  /// isto: ele é derivado da compra (preço pago ÷ quantidade da embalagem).
+  /// É por unidade porque a ficha técnica consome por unidade — guardar o
+  /// preço do frasco aqui faria 4 ml de base custarem um frasco inteiro.
+  custoUnitarioCentavos Int
+  estoqueMinimo Decimal   @default(0) @db.Decimal(10, 3)
+  validade      DateTime? @db.Date
+  ativo         Boolean   @default(true)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usadoEm    ServicoProduto[]
+  movimentos MovimentoEstoque[]
+
+  @@index([nome])
+}
+
+/// Ficha técnica: quanto de cada produto um serviço consome, em média.
+/// É isso que permite a baixa automática de estoque e o custo real por atendimento.
+model ServicoProduto {
+  id         String  @id @default(cuid())
+  servicoId  String
+  produtoId  String
+  quantidade Decimal @db.Decimal(10, 3)
+
+  servico Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Restrict)
+
+  @@unique([servicoId, produtoId])
+}
+
+model Agendamento {
+  id        String @id @default(cuid())
+  clienteId String
+  servicoId String
+
+  /// Início e fim DO ATENDIMENTO em si, em UTC. É o que a cliente vê.
+  inicio DateTime
+  fim    DateTime
+
+  local    LocalAtendimento @default(ESTUDIO)
+  endereco String?
+
+  /// Deslocamento em minutos. A agenda fica ocupada de
+  /// (inicio - deslocamentoIdaMin) até (fim + deslocamentoVoltaMin) — é essa
+  /// janela, e não inicio/fim, que a verificação de conflito usa.
+  deslocamentoIdaMin       Int @default(0)
+  deslocamentoVoltaMin     Int @default(0)
+  taxaDeslocamentoCentavos Int @default(0)
+
+  status StatusAgendamento @default(PENDENTE)
+
+  /// Cópia do preço do serviço no momento do agendamento. Se o preço da tabela
+  /// mudar depois, o histórico de faturamento não pode mudar junto.
+  precoCentavos Int
+
+  observacoes String?
+
+  lembreteEnviadoEm DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  cliente    Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  servico    Servico            @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+  movimentos MovimentoEstoque[]
+
+  @@index([inicio])
+  @@index([status, inicio])
+  // Chave estrangeira sem índice faz o Postgres varrer a tabela inteira a cada
+  // exclusão de cliente ou serviço (por causa do ON DELETE RESTRICT), e também
+  // ao listar o histórico de uma cliente.
+  @@index([clienteId])
+  @@index([servicoId])
+}
+
+/// Livro-razão do estoque. Só se escreve aqui, nunca se edita saldo direto.
+model MovimentoEstoque {
+  id            String  @id @default(cuid())
+  produtoId     String
+  agendamentoId String?
+
+  tipo TipoMovimento
+
+  /// Quantidade COM SINAL: positiva para ENTRADA, negativa para CONSUMO e
+  /// PERDA, qualquer sinal para AJUSTE. Assim o saldo é um SUM() simples.
+  quantidade Decimal @db.Decimal(10, 3)
+
+  /// Quanto foi pago NA COMPRA INTEIRA deste lançamento, para ENTRADA.
+  /// Total, não unitário: é o número que aparece no cupom. O custo unitário
+  /// sai daqui dividido pela quantidade.
+  custoTotalCentavos Int?
+
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  produto     Produto      @relation(fields: [produtoId], references: [id], onDelete: Restrict)
+  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([produtoId])
+  @@index([agendamentoId])
+}
+
+/// Linha única de configuração. Como o sistema é de uso pessoal, não existe
+/// tabela de usuários — o id é fixo em "unica".
+model Configuracao {
+  id String @id @default("unica")
+
+  nomeProfissional String  @default("")
+  telefone         String  @default("")
+  enderecoEstudio  String?
+
+  /// Horário padrão de trabalho, para a agenda saber o que oferecer
+  horaAbertura String @default("09:00")
+  horaFechamento String @default("19:00")
+
+  atualizadoEm DateTime @updatedAt
+}
+
+/// Registro de tentativas de entrada, para travar força bruta.
+///
+/// Mora no banco, e não em memória, porque em ambiente serverless cada
+/// instância teria o próprio contador — e quem estivesse tentando adivinhar a
+/// senha só precisaria cair em instâncias diferentes para nunca ser barrado.
+model TentativaAcesso {
+  id       String   @id @default(cuid())
+  ip       String
+  sucesso  Boolean
+  criadoEm DateTime @default(now())
+
+  @@index([ip, criadoEm])
+  @@index([criadoEm])
+}

@@ -1,0 +1,65 @@
+import Link from "next/link";
+import { formatarReal } from "@/lib/dinheiro";
+import { formatarQuantidade, produtosComEstoque } from "@/lib/estoque";
+import { dataCurta } from "@/lib/tempo";
+import { BotaoLink, Cartao, Etiqueta, Titulo, Vazio } from "@/components/ui";
+import { connection } from "next/server";
+import { exigirSessao } from "@/lib/sessao";
+
+export default async function PaginaProdutos() {
+  // Verificada de novo aqui, e não só no layout: numa navegação pelo
+  // cliente o Next pode renderizar só este trecho, sem passar pelo layout.
+  await exigirSessao();
+
+  // Sem isto o Next pré-renderiza esta página no build e ela serve dados
+  // congelados: nada aqui usa cookies/params, então ele a considera estática.
+  await connection();
+
+  const produtos = await produtosComEstoque();
+
+  return (
+    <>
+      <Titulo acao={<BotaoLink href="/produtos/novo">Novo produto</BotaoLink>}>Produtos</Titulo>
+
+      {produtos.length === 0 ? (
+        <Vazio
+          titulo="Nenhum produto cadastrado"
+          descricao="Cadastre o que você usa nos atendimentos. É a partir daqui que a ficha técnica dá baixa sozinha no estoque."
+          acao={<BotaoLink href="/produtos/novo">Cadastrar produto</BotaoLink>}
+        />
+      ) : (
+        <Cartao className="divide-y divide-zinc-100">
+          {produtos.map(({ saldo, minimo, repor, vencendo, ...p }) => {
+            return (
+              <div key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/produtos/${p.id}`} className="font-medium text-zinc-900 hover:text-rose-700">
+                      {p.nome}
+                    </Link>
+                    {p.marca && <span className="text-sm text-zinc-400">{p.marca}</span>}
+                    {repor && <Etiqueta tom="alerta">repor</Etiqueta>}
+                    {vencendo && (
+                      <Etiqueta tom="alerta">vence {dataCurta(p.validade!)}</Etiqueta>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    {formatarReal(p.custoUnitarioCentavos)} por {p.unidade}
+                    {minimo > 0 && ` · mínimo ${formatarQuantidade(minimo, p.unidade)}`}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className={`text-lg font-semibold ${repor ? "text-amber-600" : "text-zinc-900"}`}>
+                    {formatarQuantidade(saldo)}
+                  </p>
+                  <p className="text-xs text-zinc-400">{p.unidade} em estoque</p>
+                </div>
+              </div>
+            );
+          })}
+        </Cartao>
+      )}
+    </>
+  );
+}
