@@ -1,64 +1,101 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { saldosPorProduto } from "@/lib/estoque";
-import { Cartao } from "@/components/ui";
 import { connection } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
+import { saldosPorProduto } from "@/lib/estoque";
+import { proximosAtendimentos, resumoDoDia, hojeEmSaoPaulo } from "@/lib/agenda-consulta";
+import { dataCurta, hora } from "@/lib/tempo";
+import { formatarReal } from "@/lib/dinheiro";
+import { BotaoLink, Cartao, Etiqueta } from "@/components/ui";
 
 export default async function Inicio() {
-  // Verificada de novo aqui, e não só no layout: numa navegação pelo
-  // cliente o Next pode renderizar só este trecho, sem passar pelo layout.
   await exigirSessao();
-
   // Sem isto o Next pré-renderiza esta página no build e ela serve dados
   // congelados: nada aqui usa cookies/params, então ele a considera estática.
   await connection();
 
-  const [clientes, servicos, produtos, saldos] = await Promise.all([
+  const hoje = hojeEmSaoPaulo();
+
+  const [doDia, proximos, clientes, servicos, produtos, saldos] = await Promise.all([
+    resumoDoDia(hoje),
+    proximosAtendimentos(5),
     prisma.cliente.count(),
     prisma.servico.count({ where: { ativo: true } }),
     prisma.produto.findMany({ where: { ativo: true }, select: { id: true, estoqueMinimo: true } }),
     saldosPorProduto(),
   ]);
 
-  const aRepor = produtos.filter(
-    (p) => (saldos.get(p.id) ?? 0) <= Number(p.estoqueMinimo),
-  ).length;
-
-  const atalhos = [
-    { href: "/clientes", rotulo: "Clientes", valor: clientes, sufixo: clientes === 1 ? "cadastrada" : "cadastradas" },
-    { href: "/servicos", rotulo: "Serviços", valor: servicos, sufixo: servicos === 1 ? "ativo" : "ativos" },
-    { href: "/produtos", rotulo: "Produtos", valor: produtos.length, sufixo: aRepor > 0 ? `${aRepor} para repor` : "em estoque" },
-  ];
+  const aRepor = produtos.filter((p) => (saldos.get(p.id) ?? 0) <= Number(p.estoqueMinimo)).length;
+  const deHoje = doDia.atendimentos.filter((a) => a.status !== "CANCELADO");
 
   return (
     <>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-texto">Início</h1>
-      <p className="mb-8 text-texto-fraco">Seus cadastros. A agenda entra aqui em seguida.</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-texto">Início</h1>
+          <p className="mt-0.5 text-sm text-texto-fraco">
+            {deHoje.length === 0
+              ? "Nenhum atendimento hoje"
+              : `${deHoje.length} atendimento${deHoje.length > 1 ? "s" : ""} hoje · ${formatarReal(doDia.previsto)}`}
+          </p>
+        </div>
+        <BotaoLink href="/agenda/novo">Marcar atendimento</BotaoLink>
+      </div>
+
+      {deHoje.length > 0 && (
+        <Cartao className="mb-6 divide-y divide-borda-suave">
+          {deHoje.map((a) => (
+            <Link
+              key={a.id}
+              href={`/agenda/${a.id}`}
+              className="flex items-center gap-4 px-5 py-3 transition hover:bg-superficie-suave"
+            >
+              <span className="w-12 shrink-0 font-mono text-sm font-semibold text-texto">{hora(a.inicio)}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-texto">
+                {a.cliente.nome}
+                <span className="text-texto-fraco"> · {a.servico.nome}</span>
+              </span>
+              {a.local === "DOMICILIO" && <Etiqueta>domicílio</Etiqueta>}
+            </Link>
+          ))}
+        </Cartao>
+      )}
+
+      {deHoje.length === 0 && proximos.length > 0 && (
+        <Cartao className="mb-6 p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">A seguir</h2>
+          <div className="space-y-2">
+            {proximos.map((a) => (
+              <Link
+                key={a.id}
+                href={`/agenda/${a.id}`}
+                className="flex items-center gap-3 text-sm transition hover:text-marca"
+              >
+                <span className="w-28 shrink-0 font-mono text-texto-fraco">
+                  {dataCurta(a.inicio)} {hora(a.inicio)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-texto">{a.cliente.nome}</span>
+              </Link>
+            ))}
+          </div>
+        </Cartao>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {atalhos.map((a) => (
+        {[
+          { href: "/clientes", rotulo: "Clientes", valor: clientes, sufixo: clientes === 1 ? "cadastrada" : "cadastradas", alerta: false },
+          { href: "/servicos", rotulo: "Serviços", valor: servicos, sufixo: servicos === 1 ? "ativo" : "ativos", alerta: false },
+          { href: "/produtos", rotulo: "Produtos", valor: produtos.length, sufixo: aRepor > 0 ? `${aRepor} para repor` : "em estoque", alerta: aRepor > 0 },
+        ].map((a) => (
           <Link key={a.href} href={a.href} className="group">
             <Cartao className="h-full p-5 transition group-hover:border-marca group-hover:shadow-md">
-              <p className="text-sm font-medium text-texto-fraco">{a.rotulo}</p>
+              <p className="text-sm font-medium text-texto-suave">{a.rotulo}</p>
               <p className="mt-2 text-3xl font-semibold text-texto">{a.valor}</p>
-              <p className={`mt-0.5 text-sm ${a.rotulo === "Produtos" && aRepor > 0 ? "text-atencao" : "text-texto-fraco"}`}>
-                {a.sufixo}
-              </p>
+              <p className={`mt-0.5 text-sm ${a.alerta ? "text-atencao" : "text-texto-fraco"}`}>{a.sufixo}</p>
             </Cartao>
           </Link>
         ))}
       </div>
-
-      <Cartao className="mt-8 p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Ainda por vir</h2>
-        <ul className="mt-3 space-y-2 text-sm text-texto-suave">
-          <li>Agenda do dia e da semana, com bloqueio de horário considerando o deslocamento</li>
-          <li>Criar atendimento e dar baixa no estoque ao concluir</li>
-          <li>Lembrete pelo WhatsApp com a mensagem pronta</li>
-          <li>Senha de acesso e assinatura da agenda no celular</li>
-        </ul>
-      </Cartao>
     </>
   );
 }

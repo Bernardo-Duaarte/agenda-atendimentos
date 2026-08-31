@@ -5,6 +5,7 @@ import { BotaoTema } from "@/components/botao-tema";
 
 const abas = [
   { href: "/", rotulo: "Início" },
+  { href: "/agenda", rotulo: "Agenda" },
   { href: "/clientes", rotulo: "Clientes" },
   { href: "/servicos", rotulo: "Serviços" },
   { href: "/produtos", rotulo: "Produtos" },
