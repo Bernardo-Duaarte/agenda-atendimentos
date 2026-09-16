@@ -41,6 +41,7 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
           descricao: servico.descricao,
           precoReais: paraCampoReal(servico.precoCentavos),
           duracaoMin: servico.duracaoMin,
+          percentualSinal: servico.percentualSinal,
           ficha,
         }}
       />

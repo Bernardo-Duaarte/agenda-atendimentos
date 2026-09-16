@@ -10,19 +10,15 @@ import {
   mudarStatus,
 } from "../acoes";
 import { FormularioAtendimento } from "../formulario";
-import { Cartao, Etiqueta, Titulo } from "@/components/ui";
+import { Cartao, Etiqueta, EtiquetaStatus, Titulo } from "@/components/ui";
 import { formatarReal, paraCampoReal } from "@/lib/dinheiro";
+import { ROTULO_FORMA, ROTULO_TIPO_PAGAMENTO, resumoFinanceiro } from "@/lib/financeiro";
+import { registrarPagamento, excluirPagamento } from "../acoes-pagamento";
+import { FormularioPagamento } from "../pagamento-form";
+import { momentoAgora } from "@/lib/agenda-consulta";
 import { formatarQuantidade } from "@/lib/estoque";
-import { dataLonga, hora, janelaOcupada, paraInputDate, paraInputTime } from "@/lib/tempo";
+import { dataCurta, dataLonga, hora, janelaOcupada, paraInputDate, paraInputTime } from "@/lib/tempo";
 import { linkWhatsApp, mensagemLembrete } from "@/lib/whatsapp";
-
-const APARENCIA = {
-  PENDENTE: { rotulo: "a confirmar", tom: "alerta" },
-  CONFIRMADO: { rotulo: "confirmado", tom: "ok" },
-  CONCLUIDO: { rotulo: "concluído", tom: "neutro" },
-  CANCELADO: { rotulo: "cancelado", tom: "neutro" },
-  FALTOU: { rotulo: "não veio", tom: "alerta" },
-} as const;
 
 function BotaoAcao({
   children,
@@ -45,31 +41,43 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
   await exigirSessao();
   const { id } = await props.params;
 
-  const [atendimento, clientes, servicos] = await Promise.all([
+  const [atendimento, clientes, servicos, agora] = await Promise.all([
     prisma.agendamento.findUnique({
       where: { id },
       include: {
         cliente: true,
         servico: { include: { insumos: { include: { produto: true } } } },
         movimentos: { include: { produto: true } },
+        pagamentos: { orderBy: { pagoEm: "desc" } },
       },
     }),
     prisma.cliente.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, enderecoPadrao: true } }),
     prisma.servico.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, precoCentavos: true, duracaoMin: true },
+      select: { id: true, nome: true, precoCentavos: true, duracaoMin: true, percentualSinal: true },
     }),
+    momentoAgora(),
   ]);
 
   if (!atendimento) notFound();
 
   const a = atendimento;
-  const visual = APARENCIA[a.status];
-  const janela = janelaOcupada(a);
+    const janela = janelaOcupada(a);
   const temTransito = a.deslocamentoIdaMin > 0 || a.deslocamentoVoltaMin > 0;
-  const total = a.precoCentavos + a.taxaDeslocamentoCentavos;
   const consumo = a.movimentos.filter((m) => m.tipo === "CONSUMO");
+
+  const conta = resumoFinanceiro({
+    status: a.status,
+    precoCentavos: a.precoCentavos,
+    taxaDeslocamentoCentavos: a.taxaDeslocamentoCentavos,
+    sinalCentavos: a.sinalCentavos,
+    pagamentos: a.pagamentos,
+    movimentos: a.movimentos,
+    insumos: a.servico.insumos,
+  });
+  const total = conta.total;
+  const faltaDoSinal = Math.max(0, conta.sinal - conta.sinalRecebido);
 
   const mensagem = mensagemLembrete({
     cliente: a.cliente,
@@ -87,7 +95,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Etiqueta tom={visual.tom}>{visual.rotulo}</Etiqueta>
+              <EtiquetaStatus status={a.status} />
               <Etiqueta>{a.local === "DOMICILIO" ? "domicílio" : "estúdio"}</Etiqueta>
               {a.lembreteEnviadoEm && <Etiqueta tom="ok">lembrete enviado</Etiqueta>}
             </div>
@@ -126,6 +134,65 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         )}
       </Cartao>
 
+      {/* Dinheiro: combinado, recebido, a receber e o que sobra */}
+      <Cartao className="mb-6 p-6">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
+          Financeiro
+        </h2>
+
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-texto-fraco">Total combinado</p>
+            <p className="text-xl font-semibold text-texto">{formatarReal(conta.total)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-texto-fraco">
+              Sinal ({a.servico.percentualSinal}%)
+            </p>
+            <p className={`text-xl font-semibold ${conta.sinalQuitado ? "text-positivo" : "text-atencao"}`}>
+              {formatarReal(conta.sinal)}
+            </p>
+            <p className="text-xs text-texto-fraco">
+              {conta.sinal === 0
+                ? "sem sinal combinado"
+                : conta.sinalQuitado
+                  ? "pago"
+                  : `faltam ${formatarReal(faltaDoSinal)}`}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-texto-fraco">Já recebido</p>
+            <p className="text-xl font-semibold text-texto">{formatarReal(conta.recebido)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-texto-fraco">A receber</p>
+            <p className={`text-xl font-semibold ${conta.aReceber > 0 ? "text-atencao" : "text-texto-fraco"}`}>
+              {formatarReal(conta.aReceber)}
+            </p>
+            {a.status === "CANCELADO" && conta.recebido > 0 && (
+              <p className="text-xs text-texto-fraco">cancelado — o sinal fica</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-borda-suave pt-4 text-sm">
+          <span className="text-texto-suave">
+            Produtos: <strong className="text-texto">{formatarReal(conta.custoProdutos)}</strong>
+            {conta.custoEhEstimativa && (
+              <span className="text-texto-fraco"> (estimado pela ficha técnica)</span>
+            )}
+          </span>
+          {!conta.custoEhEstimativa && (
+            <span className="text-texto-suave">
+              Sobra do que entrou:{" "}
+              <strong className={conta.sobra >= 0 ? "text-positivo" : "text-perigo"}>
+                {formatarReal(conta.sobra)}
+              </strong>
+            </span>
+          )}
+        </div>
+      </Cartao>
+
       {/* Ações do dia a dia */}
       <div className="mb-8 flex flex-wrap gap-2">
         <a
@@ -144,11 +211,13 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           </form>
         )}
 
-        {a.status === "PENDENTE" && (
+        {(a.status === "PENDENTE" || a.status === "PRE_AGENDAMENTO") && (
           <form action={mudarStatus}>
             <input type="hidden" name="id" value={a.id} />
             <input type="hidden" name="status" value="CONFIRMADO" />
-            <BotaoAcao>Confirmar</BotaoAcao>
+            {/* Atalho para quando você confirma sem sinal, por confiar na
+                cliente. Com sinal, o registro do pagamento já confirma. */}
+            <BotaoAcao>Confirmar sem sinal</BotaoAcao>
           </form>
         )}
 
@@ -173,6 +242,55 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
             </form>
           </>
         )}
+      </div>
+
+      {/* Recebimentos */}
+      {a.pagamentos.length > 0 && (
+        <Cartao className="mb-6 divide-y divide-borda-suave">
+          {a.pagamentos.map((pg) => {
+            const devolucao = pg.valorCentavos < 0;
+            return (
+              <div key={pg.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-texto">
+                    {ROTULO_TIPO_PAGAMENTO[pg.tipo]}
+                    <span className="font-normal text-texto-fraco">
+                      {" "}· {ROTULO_FORMA[pg.forma]} · {dataCurta(pg.pagoEm)}
+                    </span>
+                  </p>
+                  {pg.observacao && (
+                    <p className="truncate text-xs text-texto-fraco">{pg.observacao}</p>
+                  )}
+                </div>
+                <p className={`font-mono text-sm font-medium ${devolucao ? "text-perigo" : "text-positivo"}`}>
+                  {devolucao ? "" : "+"}
+                  {formatarReal(pg.valorCentavos)}
+                </p>
+                <form action={excluirPagamento}>
+                  <input type="hidden" name="id" value={pg.id} />
+                  <button
+                    type="submit"
+                    className="text-xs text-texto-fraco underline underline-offset-2 transition hover:text-perigo"
+                    title="Apagar este lançamento"
+                  >
+                    apagar
+                  </button>
+                </form>
+              </div>
+            );
+          })}
+        </Cartao>
+      )}
+
+      <div className="mb-8">
+        <FormularioPagamento
+          acao={registrarPagamento}
+          agendamentoId={a.id}
+          sinalSugerido={faltaDoSinal > 0 ? paraCampoReal(faltaDoSinal) : ""}
+          restanteSugerido={conta.aReceber > 0 ? paraCampoReal(conta.aReceber) : ""}
+          hoje={agora.data}
+          agora={agora.hora}
+        />
       </div>
 
       {/* O que saiu do estoque */}
@@ -225,6 +343,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           nome: s.nome,
           duracaoMin: s.duracaoMin,
           precoReais: paraCampoReal(s.precoCentavos),
+          percentualSinal: s.percentualSinal,
         }))}
         atendimento={{
           id: a.id,
@@ -238,6 +357,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           deslocamentoVoltaMin: a.deslocamentoVoltaMin,
           taxaReais: paraCampoReal(a.taxaDeslocamentoCentavos),
           precoReais: paraCampoReal(a.precoCentavos),
+          sinalReais: paraCampoReal(a.sinalCentavos),
           observacoes: a.observacoes,
         }}
       />

@@ -24,11 +24,26 @@ enum LocalAtendimento {
 }
 
 enum StatusAgendamento {
-  PENDENTE
-  CONFIRMADO
+  PRE_AGENDAMENTO // conversa inicial: data combinada, sinal ainda não pago
+  PENDENTE        // fechado, aguardando o sinal
+  CONFIRMADO      // sinal pago, horário garantido
   CONCLUIDO
   CANCELADO
   FALTOU // no-show: contabiliza separado de cancelado, é métrica diferente
+}
+
+enum TipoPagamento {
+  SINAL     // entrada que confirma o horário
+  RESTANTE  // o que falta, normalmente no dia
+  EXTRA     // algo cobrado além do combinado
+  DEVOLUCAO // valor devolvido à cliente
+}
+
+enum FormaPagamento {
+  PIX
+  DINHEIRO
+  CARTAO
+  TRANSFERENCIA
 }
 
 enum TipoMovimento {
@@ -69,6 +84,12 @@ model Servico {
   precoCentavos Int
   duracaoMin    Int
   ativo         Boolean @default(true)
+
+  /// Quanto do preço se pede de sinal para garantir o horário, em porcento.
+  /// Fica no serviço, e não numa configuração única, porque noiva e social
+  /// não precisam ter a mesma regra. O valor ainda pode ser ajustado em um
+  /// atendimento específico.
+  percentualSinal Int @default(30)
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
@@ -145,6 +166,11 @@ model Agendamento {
   /// mudar depois, o histórico de faturamento não pode mudar junto.
   precoCentavos Int
 
+  /// Quanto foi combinado de sinal. Nasce do percentual do serviço e vira
+  /// cópia aqui pelo mesmo motivo do preço: mudar a regra amanhã não pode
+  /// reescrever o que já foi combinado ontem.
+  sinalCentavos Int @default(0)
+
   observacoes String?
 
   lembreteEnviadoEm DateTime?
@@ -155,6 +181,7 @@ model Agendamento {
   cliente    Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   servico    Servico            @relation(fields: [servicoId], references: [id], onDelete: Restrict)
   movimentos MovimentoEstoque[]
+  pagamentos Pagamento[]
 
   @@index([inicio])
   @@index([status, inicio])
@@ -221,4 +248,33 @@ model TentativaAcesso {
 
   @@index([ip, criadoEm])
   @@index([criadoEm])
+}
+
+/// Cada recebimento, um registro.
+///
+/// É uma tabela e não um campo "valorPago" porque o sinal pode vir em duas
+/// vezes, o restante pode ser dividido, e a data de cada entrada importa para
+/// saber quanto entrou no mês. Um campo só apagaria essa história.
+///
+/// Mesmo princípio do livro-razão do estoque: só se escreve, e o total é uma
+/// soma. Por isso a DEVOLUÇÃO é um valor negativo em vez de apagar a entrada.
+model Pagamento {
+  id            String @id @default(cuid())
+  agendamentoId String
+
+  tipo  TipoPagamento
+  forma FormaPagamento
+
+  /// COM SINAL: positivo para o que entra, negativo para DEVOLUCAO.
+  valorCentavos Int
+
+  /// Quando o dinheiro entrou de fato, que pode não ser quando foi lançado.
+  pagoEm     DateTime
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+
+  @@index([agendamentoId])
+  @@index([pagoEm])
 }

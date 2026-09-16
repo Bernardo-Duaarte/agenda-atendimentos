@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import { hora, paraUtc } from "@/lib/tempo";
-import { descreverConflito, haSobreposicao, intervaloDeBusca } from "@/lib/agenda";
+import { bloqueiaHorario, descreverConflito, haSobreposicao, intervaloDeBusca } from "@/lib/agenda";
+import { calcularSinal } from "@/lib/financeiro";
 import {
   comValidacao,
   dinheiro,
@@ -30,6 +31,21 @@ async function lerAtendimento(fd: FormData) {
     throw new ErroDeCampo("endereco", "Atendimento em domicílio precisa de endereço.");
   }
 
+  const precoCentavos = dinheiro(fd, "precoCentavos", "Preço");
+
+  // O sinal nasce do percentual do serviço, mas o formulário pode trazer um
+  // valor combinado à parte — daí a cópia ficar aqui e não ser recalculada
+  // na leitura: mudar o percentual amanhã não reescreve o combinado ontem.
+  const sinalDigitado = fd.get("sinalCentavos");
+  const sinalCentavos =
+    typeof sinalDigitado === "string" && sinalDigitado.trim() !== ""
+      ? dinheiro(fd, "sinalCentavos", "Sinal")
+      : calcularSinal(precoCentavos, servico.percentualSinal);
+
+  if (sinalCentavos > precoCentavos) {
+    throw new ErroDeCampo("sinalCentavos", "O sinal não pode ser maior que o preço.");
+  }
+
   return {
     clienteId: texto(fd, "clienteId", "Cliente"),
     servicoId,
@@ -42,7 +58,8 @@ async function lerAtendimento(fd: FormData) {
     taxaDeslocamentoCentavos: dinheiro(fd, "taxaDeslocamentoCentavos", "Taxa de deslocamento"),
     // Cópia do preço no momento do agendamento: se a tabela mudar depois, o
     // histórico de faturamento não pode mudar junto.
-    precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
+    precoCentavos,
+    sinalCentavos,
     observacoes: textoOpcional(fd, "observacoes"),
   };
 }
@@ -75,7 +92,12 @@ async function garantirHorarioLivre(
     include: { cliente: { select: { nome: true } } },
   });
 
-  const choque = vizinhos.find((v) => haSobreposicao({ id: "novo", ...candidato }, v));
+  // Só barra o que bloqueia de verdade. Um pré-agendamento sobreposto passa e
+  // aparece como aviso na tela do dia — quem pagar o sinal fica com o horário.
+  const choque = vizinhos
+    .filter((v) => bloqueiaHorario(v.status))
+    .find((v) => haSobreposicao({ id: "novo", ...candidato }, v));
+
   if (choque) throw new ErroDeCampo("hora", descreverConflito(choque, hora));
 }
 
@@ -88,9 +110,13 @@ export async function criarAtendimento(
   return comValidacao(async () => {
     const dados = await lerAtendimento(fd);
 
+    // Pré-agendamento é o padrão: a conversa vem antes do compromisso.
+    const escolhido = String(fd.get("status") ?? "");
+    const status = escolhido === "PENDENTE" ? "PENDENTE" : "PRE_AGENDAMENTO";
+
     await prisma.$transaction(async (tx) => {
       await garantirHorarioLivre(tx, dados);
-      await tx.agendamento.create({ data: dados });
+      await tx.agendamento.create({ data: { ...dados, status } });
     });
 
     revalidatePath("/agenda");
@@ -132,7 +158,10 @@ export async function concluirAtendimento(fd: FormData): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const ag = await tx.agendamento.findUniqueOrThrow({
       where: { id },
-      include: { servico: { include: { insumos: true } }, movimentos: true },
+      include: {
+        servico: { include: { insumos: { include: { produto: true } } } },
+        movimentos: true,
+      },
     });
 
     if (ag.status === "CONCLUIDO") return; // já feito; não descontar de novo
@@ -152,6 +181,12 @@ export async function concluirAtendimento(fd: FormData): Promise<void> {
           // Negativa: o banco exige sinal conforme o tipo, e é isso que faz o
           // saldo poder ser uma soma simples.
           quantidade: i.quantidade.negated(),
+          // Custo congelado agora, pelo mesmo motivo do preço do atendimento:
+          // se o produto subir de preço no mês que vem, o lucro deste
+          // atendimento não pode mudar retroativamente.
+          custoTotalCentavos: Math.round(
+            Number(i.quantidade) * i.produto.custoUnitarioCentavos,
+          ),
           observacao: "Baixa automática pela ficha técnica",
         })),
       });
@@ -168,7 +203,12 @@ export async function mudarStatus(fd: FormData): Promise<void> {
   await exigirSessao();
 
   const id = String(fd.get("id"));
-  const status = String(fd.get("status")) as "PENDENTE" | "CONFIRMADO" | "CANCELADO" | "FALTOU";
+  const status = String(fd.get("status")) as
+    | "PRE_AGENDAMENTO"
+    | "PENDENTE"
+    | "CONFIRMADO"
+    | "CANCELADO"
+    | "FALTOU";
 
   await prisma.agendamento.update({ where: { id }, data: { status } });
 

@@ -9,6 +9,7 @@ const abas = [
   { href: "/clientes", rotulo: "Clientes" },
   { href: "/servicos", rotulo: "Serviços" },
   { href: "/produtos", rotulo: "Produtos" },
+  { href: "/financeiro", rotulo: "Financeiro" },
 ] as const;
 
 export default async function LayoutApp({ children }: LayoutProps<"/">) {

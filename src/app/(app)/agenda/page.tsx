@@ -3,15 +3,7 @@ import { exigirSessao } from "@/lib/sessao";
 import { deslocarDia, hojeEmSaoPaulo, resumoDoDia } from "@/lib/agenda-consulta";
 import { dataLonga, hora, janelaOcupada } from "@/lib/tempo";
 import { formatarReal } from "@/lib/dinheiro";
-import { BotaoLink, Cartao, Etiqueta, Vazio } from "@/components/ui";
-
-const APARENCIA = {
-  PENDENTE: { rotulo: "a confirmar", tom: "alerta" },
-  CONFIRMADO: { rotulo: "confirmado", tom: "ok" },
-  CONCLUIDO: { rotulo: "concluído", tom: "neutro" },
-  CANCELADO: { rotulo: "cancelado", tom: "neutro" },
-  FALTOU: { rotulo: "não veio", tom: "alerta" },
-} as const;
+import { BotaoLink, Cartao, Etiqueta, EtiquetaStatus, Vazio } from "@/components/ui";
 
 export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   await exigirSessao();
@@ -20,7 +12,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   const hoje = hojeEmSaoPaulo();
   const dia = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : hoje;
 
-  const { atendimentos, total, previsto } = await resumoDoDia(dia);
+  const { atendimentos, conflitos, total, previsto } = await resumoDoDia(dia);
 
   return (
     <>
@@ -73,8 +65,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
           {atendimentos.map((a) => {
             const janela = janelaOcupada(a);
             const temTransito = a.deslocamentoIdaMin > 0 || a.deslocamentoVoltaMin > 0;
-            const visual = APARENCIA[a.status];
-            const riscado = a.status === "CANCELADO";
+                        const riscado = a.status === "CANCELADO";
 
             return (
               <Link
@@ -94,13 +85,19 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
                     <span className={`font-medium ${riscado ? "text-texto-fraco line-through" : "text-texto"}`}>
                       {a.cliente.nome}
                     </span>
-                    <Etiqueta tom={visual.tom}>{visual.rotulo}</Etiqueta>
+                    <EtiquetaStatus status={a.status} />
                     {a.local === "DOMICILIO" && <Etiqueta>domicílio</Etiqueta>}
+                    {conflitos.has(a.id) && <Etiqueta tom="alerta">choca com outro</Etiqueta>}
                   </div>
                   <p className="mt-0.5 truncate text-sm text-texto-fraco">
                     {a.servico.nome}
                     {temTransito && ` · ocupa ${hora(janela.de)}–${hora(janela.ate)} com trânsito`}
                   </p>
+                  {conflitos.has(a.id) && (
+                    <p className="mt-0.5 text-sm text-atencao-texto">
+                      Mesmo horário de {conflitos.get(a.id)!.join(", ")} — quem pagar o sinal fica
+                    </p>
+                  )}
                 </div>
 
                 <p className="shrink-0 text-sm font-medium text-texto-suave">

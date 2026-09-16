@@ -20,7 +20,7 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
     prisma.servico.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, precoCentavos: true, duracaoMin: true },
+      select: { id: true, nome: true, precoCentavos: true, duracaoMin: true, percentualSinal: true },
     }),
   ]);
 
@@ -35,6 +35,7 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
           nome: s.nome,
           duracaoMin: s.duracaoMin,
           precoReais: paraCampoReal(s.precoCentavos),
+          percentualSinal: s.percentualSinal,
         }))}
         // Só para o campo de data já vir preenchido com o dia que estava sendo
         // olhado na agenda; o resto do formulário nasce em branco.

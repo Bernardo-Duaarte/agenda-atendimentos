@@ -107,3 +107,26 @@ export function Etiqueta({ children, tom = "neutro" }: { children: ReactNode; to
   }[tom];
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cores}`}>{children}</span>;
 }
+
+/**
+ * Aparência de cada estado do atendimento, num lugar só.
+ *
+ * Estava duplicada na tela do dia e na do atendimento, o que já tinha feito
+ * as duas divergirem ao acrescentar o pré-agendamento.
+ */
+const STATUS = {
+  PRE_AGENDAMENTO: { rotulo: "pré-agendamento", tom: "neutro" },
+  PENDENTE: { rotulo: "aguardando sinal", tom: "alerta" },
+  CONFIRMADO: { rotulo: "confirmado", tom: "ok" },
+  CONCLUIDO: { rotulo: "concluído", tom: "neutro" },
+  CANCELADO: { rotulo: "cancelado", tom: "neutro" },
+  FALTOU: { rotulo: "não veio", tom: "alerta" },
+} as const;
+
+export type StatusAgendamento = keyof typeof STATUS;
+
+export const rotuloStatus = (s: StatusAgendamento) => STATUS[s].rotulo;
+
+export function EtiquetaStatus({ status }: { status: StatusAgendamento }) {
+  return <Etiqueta tom={STATUS[status].tom}>{STATUS[status].rotulo}</Etiqueta>;
+}

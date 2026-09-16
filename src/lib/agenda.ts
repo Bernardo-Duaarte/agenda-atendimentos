@@ -10,8 +10,25 @@ import { janelaOcupada } from "./tempo";
  * problema na hora de sair.
  */
 
-/** Status que não ocupam horário: já não vão acontecer. */
-export const STATUS_LIVRES = ["CANCELADO"] as const;
+/**
+ * Quem ocupa a agenda, e com que força.
+ *
+ * CANCELADO some: não vai acontecer.
+ *
+ * PRE_AGENDAMENTO não bloqueia, só avisa. Duas clientes podem estar
+ * negociando a mesma data, e prender o sábado numa conversa que talvez não
+ * feche custa caro. Quem paga o sinal primeiro fica com o horário — e aí o
+ * atendimento passa a bloquear de verdade.
+ */
+export const NAO_OCUPA = ["CANCELADO"] as const;
+export const APENAS_AVISA = ["PRE_AGENDAMENTO"] as const;
+
+export function bloqueiaHorario(status: string): boolean {
+  return (
+    !(NAO_OCUPA as readonly string[]).includes(status) &&
+    !(APENAS_AVISA as readonly string[]).includes(status)
+  );
+}
 
 export type JanelaDeAtendimento = {
   id: string;

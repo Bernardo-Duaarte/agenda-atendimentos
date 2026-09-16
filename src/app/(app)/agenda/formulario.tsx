@@ -7,7 +7,13 @@ import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 
 export type ClienteOpcao = { id: string; nome: string; enderecoPadrao: string | null };
-export type ServicoOpcao = { id: string; nome: string; precoReais: string; duracaoMin: number };
+export type ServicoOpcao = {
+  id: string;
+  nome: string;
+  precoReais: string;
+  duracaoMin: number;
+  percentualSinal: number;
+};
 
 export type AtendimentoEmEdicao = {
   id: string;
@@ -21,6 +27,7 @@ export type AtendimentoEmEdicao = {
   deslocamentoVoltaMin: number;
   taxaReais: string;
   precoReais: string;
+  sinalReais: string;
   observacoes: string | null;
 };
 
@@ -45,16 +52,27 @@ export function FormularioAtendimento({
   const [servicoId, setServicoId] = useState(atendimento?.servicoId ?? servicos[0]?.id ?? "");
   const [local, setLocal] = useState<"ESTUDIO" | "DOMICILIO">(atendimento?.local ?? "ESTUDIO");
   const [preco, setPreco] = useState(atendimento?.precoReais ?? servicos[0]?.precoReais ?? "");
+  const [sinal, setSinal] = useState(
+    atendimento?.sinalReais ?? sinalSugerido(servicos[0]?.precoReais ?? "", servicos[0]?.percentualSinal ?? 30),
+  );
   const [endereco, setEndereco] = useState(atendimento?.endereco ?? "");
 
   const servico = servicos.find((s) => s.id === servicoId);
   const cliente = clientes.find((c) => c.id === clienteId);
 
-  /** Trocar de serviço traz o preço da tabela — que continua editável. */
+  /** Trocar de serviço traz preço e sinal da tabela — ambos continuam editáveis. */
   function escolherServico(id: string) {
     setServicoId(id);
     const s = servicos.find((x) => x.id === id);
-    if (s) setPreco(s.precoReais);
+    if (!s) return;
+    setPreco(s.precoReais);
+    setSinal(sinalSugerido(s.precoReais, s.percentualSinal));
+  }
+
+  /** Mexer no preço reajusta o sinal sugerido, mantendo o percentual. */
+  function escolherPreco(novo: string) {
+    setPreco(novo);
+    if (servico) setSinal(sinalSugerido(novo, servico.percentualSinal));
   }
 
   /** Ao ir para domicílio, sugere o endereço que a cliente já tem cadastrado. */
@@ -209,19 +227,48 @@ export function FormularioAtendimento({
       </Cartao>
 
       <Cartao className="space-y-5 p-6">
-        <Campo
-          rotulo="Preço do atendimento"
-          erro={erro("precoCentavos")}
-          dica="Vem da tabela do serviço, mas você pode ajustar. O valor fica congelado neste atendimento."
-        >
-          <Entrada
-            name="precoCentavos"
-            value={preco}
-            onChange={(e) => setPreco(e.target.value)}
-            erro={!!erro("precoCentavos")}
-            inputMode="decimal"
-          />
-        </Campo>
+        {!atendimento && (
+          <Campo
+            rotulo="Tipo"
+            erro={erro("status")}
+            dica="Pré-agendamento não bloqueia o horário; ele avisa se outra cliente quiser a mesma data. Assim que o sinal for pago, vira agendamento sozinho."
+          >
+            <Selecao name="status" defaultValue="PRE_AGENDAMENTO">
+              <option value="PRE_AGENDAMENTO">Pré-agendamento — conversa inicial</option>
+              <option value="PENDENTE">Agendamento — já está fechado</option>
+            </Selecao>
+          </Campo>
+        )}
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Campo
+            rotulo="Preço do atendimento"
+            erro={erro("precoCentavos")}
+            dica="Vem da tabela do serviço. Fica congelado neste atendimento."
+          >
+            <Entrada
+              name="precoCentavos"
+              value={preco}
+              onChange={(e) => escolherPreco(e.target.value)}
+              erro={!!erro("precoCentavos")}
+              inputMode="decimal"
+            />
+          </Campo>
+
+          <Campo
+            rotulo="Sinal para confirmar"
+            erro={erro("sinalCentavos")}
+            dica={servico ? `${servico.percentualSinal}% do preço. Pagou, o horário é dela.` : undefined}
+          >
+            <Entrada
+              name="sinalCentavos"
+              value={sinal}
+              onChange={(e) => setSinal(e.target.value)}
+              erro={!!erro("sinalCentavos")}
+              inputMode="decimal"
+            />
+          </Campo>
+        </div>
 
         <Campo rotulo="Observações" erro={erro("observacoes")} dica="Opcional.">
           <AreaTexto
@@ -240,4 +287,21 @@ export function FormularioAtendimento({
       </div>
     </form>
   );
+}
+
+/**
+ * Sugere o sinal a partir do preço digitado e do percentual do serviço.
+ *
+ * Trabalha com o texto do campo — "1.234,56" — e devolve texto, porque é isso
+ * que o formulário mostra. A conta que vale é refeita no servidor, em centavos
+ * inteiros; esta aqui é só para você ver o número antes de salvar.
+ */
+function sinalSugerido(precoTexto: string, percentual: number): string {
+  const limpo = precoTexto.trim().replace(/\./g, "").replace(",", ".");
+  const preco = Number(limpo);
+  if (!Number.isFinite(preco) || preco <= 0) return "";
+  return ((preco * percentual) / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import {
   comValidacao,
+  percentual,
   dinheiro,
   inteiro,
   texto,
@@ -20,6 +21,7 @@ function dadosDoServico(fd: FormData) {
     descricao: textoOpcional(fd, "descricao"),
     precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
     duracaoMin: inteiro(fd, "duracaoMin", "Duração", { min: 5 }),
+    percentualSinal: percentual(fd, "percentualSinal", "Sinal"),
   };
 }
 

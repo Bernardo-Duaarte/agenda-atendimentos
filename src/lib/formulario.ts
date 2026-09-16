@@ -124,3 +124,10 @@ export async function comValidacao(
     throw e;
   }
 }
+
+/** Percentual inteiro de 0 a 100. */
+export function percentual(fd: FormData, campo: string, rotulo: string): number {
+  const n = inteiro(fd, campo, rotulo);
+  if (n > 100) throw new ErroDeCampo(campo, `${rotulo} não pode passar de 100%.`);
+  return n;
+}

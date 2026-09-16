@@ -19,6 +19,7 @@ export type ServicoEmEdicao = {
   descricao: string | null;
   precoReais: string;
   duracaoMin: number;
+  percentualSinal: number;
   /** produtoId -> quantidade já cadastrada, como texto de campo */
   ficha: Record<string, string>;
 };
@@ -49,7 +50,7 @@ export function FormularioServico({
           <AreaTexto name="descricao" defaultValue={servico?.descricao ?? ""} placeholder="Pele, olhos e boca. Inclui cílios postiços." />
         </Campo>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-3">
           <Campo rotulo="Preço" erro={erro("precoCentavos")}>
             <Entrada
               name="precoCentavos"
@@ -57,6 +58,20 @@ export function FormularioServico({
               erro={!!erro("precoCentavos")}
               inputMode="decimal"
               placeholder="150,00"
+            />
+          </Campo>
+
+          <Campo
+            rotulo="Sinal (%)"
+            erro={erro("percentualSinal")}
+            dica="Quanto se pede adiantado para garantir o horário."
+          >
+            <Entrada
+              name="percentualSinal"
+              defaultValue={servico?.percentualSinal ?? 30}
+              erro={!!erro("percentualSinal")}
+              inputMode="numeric"
+              placeholder="30"
             />
           </Campo>
 
