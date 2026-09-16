@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 
 export type Tema = "sistema" | "claro" | "escuro";
 
@@ -73,6 +73,22 @@ const lerNoServidor = (): Tema => "sistema";
 
 export function BotaoTema() {
   const tema = useSyncExternalStore(inscrever, lerDoNavegador, lerNoServidor);
+
+  /**
+   * Repõe o tema depois que o React o apaga.
+   *
+   * Em desenvolvimento o React remonta os componentes uma vez de propósito, e
+   * nessa remontagem ele devolve <html> ao que conhece pelo JSX — levando junto
+   * o atributo que o script tinha marcado. A tela voltaria ao tema do aparelho
+   * ignorando a escolha salva.
+   *
+   * É `useLayoutEffect` e não `useEffect` porque este roda ANTES da pintura:
+   * com o outro, a troca apareceria como uma piscada. Em produção não há
+   * remontagem, então isto não faz nada.
+   */
+  useLayoutEffect(() => {
+    aplicarNoDocumento(tema);
+  }, [tema]);
 
   function trocar() {
     const novo = PROXIMO[tema];

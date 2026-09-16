@@ -29,14 +29,25 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
-        {/* Primeiro filho do body de propósito: roda enquanto o navegador
-            ainda está lendo o HTML, antes de desenhar qualquer coisa. Mais
-            abaixo, a tela piscaria no tema errado antes de se corrigir. */}
+    <html
+      lang="pt-BR"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      /**
+       * O script abaixo marca o tema escolhido neste elemento ANTES do React
+       * assumir. Sem este aviso, o React compara o que o servidor mandou (sem
+       * o atributo) com o que encontra no navegador (com), chama de erro e
+       * refaz a árvore — o que apaga a correção e traz a piscada de volta.
+       * Aqui a divergência é intencional: quem manda é o que está na tela.
+       */
+      suppressHydrationWarning
+    >
+      <head>
+        {/* No <head> de propósito: roda enquanto o navegador ainda lê o HTML,
+            antes de qualquer pintura. Dentro do body já seria tarde para o
+            conteúdo que vem antes dele. */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_ANTI_PISCADA }} />
-        {children}
-      </body>
+      </head>
+      <body className="flex min-h-full flex-col font-sans">{children}</body>
     </html>
   );
 }
