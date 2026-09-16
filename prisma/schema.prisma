@@ -171,6 +171,13 @@ model Agendamento {
   /// reescrever o que já foi combinado ontem.
   sinalCentavos Int @default(0)
 
+  /// Distância de UM trecho, guardada junto com o atendimento.
+  ///
+  /// Existe para o valor cobrado ter explicação meses depois — "essa taxa veio
+  /// de 12 km" — e para não depender de consultar o mapa de novo, já que o
+  /// trajeto e o trânsito de hoje não são os de quando foi combinado.
+  distanciaMetros Int?
+
   observacoes String?
 
   lembreteEnviadoEm DateTime?
@@ -231,6 +238,16 @@ model Configuracao {
   /// Horário padrão de trabalho, para a agenda saber o que oferecer
   horaAbertura String @default("09:00")
   horaFechamento String @default("19:00")
+
+  /// Fórmula da taxa de deslocamento, no formato em que o Uber cobra:
+  /// base + (por km × km) + (por minuto × minutos), tudo em centavos.
+  ///
+  /// É estimativa, não consulta: não existe API pública do Uber para preço de
+  /// corrida. Estes três números são seus, calibrados pelo que você observa —
+  /// e por isso ficam editáveis em vez de fixos no código.
+  taxaBaseCentavos      Int @default(0)
+  taxaPorKmCentavos     Int @default(0)
+  taxaPorMinutoCentavos Int @default(0)
 
   atualizadoEm DateTime @updatedAt
 }

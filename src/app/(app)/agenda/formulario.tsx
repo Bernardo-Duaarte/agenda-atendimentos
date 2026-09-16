@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
+import { calcularDeslocamento } from "./acao-deslocamento";
 
 export type ClienteOpcao = { id: string; nome: string; enderecoPadrao: string | null };
 export type ServicoOpcao = {
@@ -28,6 +29,7 @@ export type AtendimentoEmEdicao = {
   taxaReais: string;
   precoReais: string;
   sinalReais: string;
+  distanciaMetros: number | null;
   observacoes: string | null;
 };
 
@@ -56,6 +58,34 @@ export function FormularioAtendimento({
     atendimento?.sinalReais ?? sinalSugerido(servicos[0]?.precoReais ?? "", servicos[0]?.percentualSinal ?? 30),
   );
   const [endereco, setEndereco] = useState(atendimento?.endereco ?? "");
+  const [ida, setIda] = useState(String(atendimento?.deslocamentoIdaMin ?? 30));
+  const [volta, setVolta] = useState(String(atendimento?.deslocamentoVoltaMin ?? 30));
+  const [taxa, setTaxa] = useState(atendimento?.taxaReais ?? "0");
+  const [calculando, iniciarCalculo] = useTransition();
+  const [avisoRota, setAvisoRota] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [metros, setMetros] = useState<number | null>(atendimento?.distanciaMetros ?? null);
+
+  /**
+   * Consulta o mapa e preenche ida, volta e taxa.
+   *
+   * Por botão, e não enquanto você digita: cada consulta ao Google é cobrada,
+   * e disparar a cada tecla gastaria dezenas delas para um endereço só.
+   */
+  function buscarDeslocamento() {
+    setAvisoRota(null);
+    iniciarCalculo(async () => {
+      const r = await calcularDeslocamento(endereco);
+      if (!r.ok) {
+        setAvisoRota({ ok: false, texto: r.erro });
+        return;
+      }
+      setIda(String(r.idaMin));
+      setVolta(String(r.voltaMin));
+      setTaxa(r.taxaReais);
+      setMetros(r.metros);
+      setAvisoRota({ ok: true, texto: r.resumo });
+    });
+  }
 
   const servico = servicos.find((s) => s.id === servicoId);
   const cliente = clientes.find((c) => c.id === clienteId);
@@ -188,11 +218,33 @@ export function FormularioAtendimento({
               />
             </Campo>
 
+            {/* Guarda de onde veio a taxa, para ela ter explicação meses depois. */}
+            {metros !== null && (
+              <input type="hidden" name="distanciaMetros" value={metros} />
+            )}
+
+            <div>
+              <button
+                type="button"
+                onClick={buscarDeslocamento}
+                disabled={calculando || !endereco.trim()}
+                className="rounded-lg border border-borda px-4 py-2 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave disabled:cursor-not-allowed disabled:text-texto-fraco"
+              >
+                {calculando ? "Consultando o mapa..." : "Calcular deslocamento"}
+              </button>
+              {avisoRota && (
+                <p className={`mt-2 text-sm ${avisoRota.ok ? "text-texto-fraco" : "text-atencao-texto"}`}>
+                  {avisoRota.texto}
+                </p>
+              )}
+            </div>
+
             <div className="grid gap-5 sm:grid-cols-3">
               <Campo rotulo="Ida (min)" erro={erro("deslocamentoIdaMin")} dica="Bloqueia antes.">
                 <Entrada
                   name="deslocamentoIdaMin"
-                  defaultValue={atendimento?.deslocamentoIdaMin ?? 30}
+                  value={ida}
+                  onChange={(e) => setIda(e.target.value)}
                   erro={!!erro("deslocamentoIdaMin")}
                   inputMode="numeric"
                 />
@@ -200,15 +252,17 @@ export function FormularioAtendimento({
               <Campo rotulo="Volta (min)" erro={erro("deslocamentoVoltaMin")} dica="Bloqueia depois.">
                 <Entrada
                   name="deslocamentoVoltaMin"
-                  defaultValue={atendimento?.deslocamentoVoltaMin ?? 30}
+                  value={volta}
+                  onChange={(e) => setVolta(e.target.value)}
                   erro={!!erro("deslocamentoVoltaMin")}
                   inputMode="numeric"
                 />
               </Campo>
-              <Campo rotulo="Taxa cobrada" erro={erro("taxaDeslocamentoCentavos")}>
+              <Campo rotulo="Taxa cobrada" erro={erro("taxaDeslocamentoCentavos")} dica="Ida e volta.">
                 <Entrada
                   name="taxaDeslocamentoCentavos"
-                  defaultValue={atendimento?.taxaReais ?? "0"}
+                  value={taxa}
+                  onChange={(e) => setTaxa(e.target.value)}
                   erro={!!erro("taxaDeslocamentoCentavos")}
                   inputMode="decimal"
                 />

@@ -19,6 +19,7 @@ import { momentoAgora } from "@/lib/agenda-consulta";
 import { formatarQuantidade } from "@/lib/estoque";
 import { dataCurta, dataLonga, hora, janelaOcupada, paraInputDate, paraInputTime } from "@/lib/tempo";
 import { linkWhatsApp, mensagemLembrete } from "@/lib/whatsapp";
+import { formatarDistancia } from "@/lib/deslocamento";
 
 function BotaoAcao({
   children,
@@ -106,6 +107,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
             {temTransito && (
               <p className="mt-1 text-sm text-texto-fraco">
                 Com deslocamento, ocupa das {hora(janela.de)} às {hora(janela.ate)}
+                {a.distanciaMetros !== null && ` · ${formatarDistancia(a.distanciaMetros)} por trecho`}
               </p>
             )}
             <p className="mt-2 text-sm text-texto-suave">{a.servico.nome}</p>
@@ -358,6 +360,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           taxaReais: paraCampoReal(a.taxaDeslocamentoCentavos),
           precoReais: paraCampoReal(a.precoCentavos),
           sinalReais: paraCampoReal(a.sinalCentavos),
+          distanciaMetros: a.distanciaMetros,
           observacoes: a.observacoes,
         }}
       />

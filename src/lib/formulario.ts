@@ -131,3 +131,11 @@ export function percentual(fd: FormData, campo: string, rotulo: string): number 
   if (n > 100) throw new ErroDeCampo(campo, `${rotulo} não pode passar de 100%.`);
   return n;
 }
+
+/** Inteiro que pode não vir. Devolve null em vez de estourar. */
+export function inteiroOpcional(fd: FormData, campo: string): number | null {
+  const v = fd.get(campo);
+  if (typeof v !== "string" || v.trim() === "") return null;
+  const n = Number(v.replace(/\D/g, ""));
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}

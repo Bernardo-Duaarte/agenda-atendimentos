@@ -11,6 +11,7 @@ import {
   comValidacao,
   dinheiro,
   inteiro,
+  inteiroOpcional,
   texto,
   textoOpcional,
   ErroDeCampo,
@@ -56,6 +57,7 @@ async function lerAtendimento(fd: FormData) {
     deslocamentoIdaMin: inteiro(fd, "deslocamentoIdaMin", "Deslocamento de ida"),
     deslocamentoVoltaMin: inteiro(fd, "deslocamentoVoltaMin", "Deslocamento de volta"),
     taxaDeslocamentoCentavos: dinheiro(fd, "taxaDeslocamentoCentavos", "Taxa de deslocamento"),
+    distanciaMetros: local === "DOMICILIO" ? inteiroOpcional(fd, "distanciaMetros") : null,
     // Cópia do preço no momento do agendamento: se a tabela mudar depois, o
     // histórico de faturamento não pode mudar junto.
     precoCentavos,
