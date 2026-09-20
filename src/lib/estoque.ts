@@ -57,3 +57,15 @@ export async function produtosComEstoque() {
     };
   });
 }
+
+/** Resumo para a tela inicial: quantos produtos e quantos precisam repor. */
+export async function resumoDoEstoque(): Promise<{ total: number; aRepor: number }> {
+  const [produtos, saldos] = await Promise.all([
+    prisma.produto.findMany({ where: { ativo: true }, select: { id: true, estoqueMinimo: true } }),
+    saldosPorProduto(),
+  ]);
+  return {
+    total: produtos.length,
+    aRepor: produtos.filter((p) => (saldos.get(p.id) ?? 0) <= Number(p.estoqueMinimo)).length,
+  };
+}

@@ -7,6 +7,7 @@ import { exigirSessao } from "@/lib/sessao";
 import { hora, paraUtc } from "@/lib/tempo";
 import { bloqueiaHorario, descreverConflito, haSobreposicao, intervaloDeBusca } from "@/lib/agenda";
 import { calcularSinal } from "@/lib/financeiro";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 import {
   comValidacao,
   dinheiro,
@@ -169,6 +170,10 @@ export async function concluirAtendimento(fd: FormData): Promise<void> {
     if (ag.status === "CONCLUIDO") return; // já feito; não descontar de novo
 
     await tx.agendamento.update({ where: { id }, data: { status: "CONCLUIDO" } });
+
+    // Com o estoque desligado, concluir apenas muda o status — nenhuma baixa
+    // é lançada. Os movimentos antigos continuam no banco, intocados.
+    if (!ESTOQUE_ATIVO) return;
 
     // Se já houver consumo lançado para este atendimento, não repetir.
     const jaConsumiu = ag.movimentos.some((m) => m.tipo === "CONSUMO");

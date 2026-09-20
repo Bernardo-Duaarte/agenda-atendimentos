@@ -22,6 +22,7 @@ import { linkWhatsApp, mensagemLembrete } from "@/lib/whatsapp";
 import { formatarDistancia } from "@/lib/deslocamento";
 import { janelaComDescricao } from "@/lib/janela";
 import { dentroDaJanela } from "@/lib/precificacao";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 function BotaoAcao({
   children,
@@ -190,22 +191,24 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-borda-suave pt-4 text-sm">
-          <span className="text-texto-suave">
-            Produtos: <strong className="text-texto">{formatarReal(conta.custoProdutos)}</strong>
-            {conta.custoEhEstimativa && (
-              <span className="text-texto-fraco"> (estimado pela ficha técnica)</span>
-            )}
-          </span>
-          {!conta.custoEhEstimativa && (
+        {ESTOQUE_ATIVO && (
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-borda-suave pt-4 text-sm">
             <span className="text-texto-suave">
-              Sobra do que entrou:{" "}
-              <strong className={conta.sobra >= 0 ? "text-positivo" : "text-perigo"}>
-                {formatarReal(conta.sobra)}
-              </strong>
+              Produtos: <strong className="text-texto">{formatarReal(conta.custoProdutos)}</strong>
+              {conta.custoEhEstimativa && (
+                <span className="text-texto-fraco"> (estimado pela ficha técnica)</span>
+              )}
             </span>
-          )}
-        </div>
+            {!conta.custoEhEstimativa && (
+              <span className="text-texto-suave">
+                Sobra do que entrou:{" "}
+                <strong className={conta.sobra >= 0 ? "text-positivo" : "text-perigo"}>
+                  {formatarReal(conta.sobra)}
+                </strong>
+              </span>
+            )}
+          </div>
+        )}
       </Cartao>
 
       {/* Ações do dia a dia */}
@@ -239,7 +242,9 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         {a.status !== "CONCLUIDO" && a.status !== "CANCELADO" && (
           <form action={concluirAtendimento}>
             <input type="hidden" name="id" value={a.id} />
-            <BotaoAcao destaque>Concluir e dar baixa no estoque</BotaoAcao>
+            <BotaoAcao destaque>
+              {ESTOQUE_ATIVO ? "Concluir e dar baixa no estoque" : "Concluir atendimento"}
+            </BotaoAcao>
           </form>
         )}
 
@@ -308,6 +313,8 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         />
       </div>
 
+      {ESTOQUE_ATIVO && (
+        <>
       {/* O que saiu do estoque */}
       {consumo.length > 0 ? (
         <Cartao className="mb-8 p-6">
@@ -347,6 +354,8 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
             </ul>
           </Cartao>
         )
+      )}
+        </>
       )}
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">Editar</h2>

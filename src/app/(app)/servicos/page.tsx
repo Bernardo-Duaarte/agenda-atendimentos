@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatarReal } from "@/lib/dinheiro";
 import { calcularSinal } from "@/lib/financeiro";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 import { BotaoLink, Cartao, Etiqueta, Titulo, Vazio } from "@/components/ui";
 import { connection } from "next/server";
 import { exigirSessao } from "@/lib/sessao";
@@ -50,13 +51,17 @@ export default async function PaginaServicos() {
                       {s.nome}
                     </Link>
                     <Etiqueta>{s.duracaoMin} min</Etiqueta>
-                    {s.insumos.length === 0 && <Etiqueta tom="alerta">sem ficha técnica</Etiqueta>}
+                    {ESTOQUE_ATIVO && s.insumos.length === 0 && (
+                      <Etiqueta tom="alerta">sem ficha técnica</Etiqueta>
+                    )}
                   </div>
-                  <p className="mt-0.5 text-sm text-texto-fraco">
-                    {custo > 0
-                      ? `Custo ${formatarReal(custo)} · sobram ${formatarReal(margem)} (${percentual}%)`
-                      : "Sem produtos na ficha — o custo aparece aqui quando você preencher."}
-                  </p>
+                  {ESTOQUE_ATIVO && (
+                    <p className="mt-0.5 text-sm text-texto-fraco">
+                      {custo > 0
+                        ? `Custo ${formatarReal(custo)} · sobram ${formatarReal(margem)} (${percentual}%)`
+                        : "Sem produtos na ficha — o custo aparece aqui quando você preencher."}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-sm text-texto-fraco">
                     Sinal de {s.percentualSinal}% ={" "}
                     {formatarReal(calcularSinal(s.precoCentavos, s.percentualSinal))}

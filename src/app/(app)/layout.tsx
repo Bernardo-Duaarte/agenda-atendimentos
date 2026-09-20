@@ -2,16 +2,21 @@ import Link from "next/link";
 import { exigirSessao } from "@/lib/sessao";
 import { sair } from "@/app/entrar/acoes";
 import { BotaoTema } from "@/components/botao-tema";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 const abas = [
   { href: "/", rotulo: "Início" },
   { href: "/agenda", rotulo: "Agenda" },
   { href: "/clientes", rotulo: "Clientes" },
   { href: "/servicos", rotulo: "Serviços" },
-  { href: "/produtos", rotulo: "Produtos" },
   { href: "/financeiro", rotulo: "Financeiro" },
   { href: "/configuracao", rotulo: "Ajustes" },
 ] as const;
+
+// A aba de produtos só aparece com o estoque ligado (ver lib/recursos.ts).
+const abasVisiveis = ESTOQUE_ATIVO
+  ? [...abas.slice(0, 4), { href: "/produtos", rotulo: "Produtos" } as const, ...abas.slice(4)]
+  : abas;
 
 export default async function LayoutApp({ children }: LayoutProps<"/">) {
   // Barreira de entrada da área logada. Não é a única: cada página e cada
@@ -27,7 +32,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
             Agenda
           </Link>
           <nav className="flex flex-1 gap-1 overflow-x-auto">
-            {abas.map((a) => (
+            {abasVisiveis.map((a) => (
               <Link
                 key={a.href}
                 href={a.href}

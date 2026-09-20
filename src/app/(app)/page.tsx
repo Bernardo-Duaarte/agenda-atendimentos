@@ -2,11 +2,12 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
-import { saldosPorProduto } from "@/lib/estoque";
 import { proximosAtendimentos, resumoDoDia, hojeEmSaoPaulo } from "@/lib/agenda-consulta";
 import { dataCurta, hora } from "@/lib/tempo";
 import { formatarReal } from "@/lib/dinheiro";
 import { BotaoLink, Cartao, Etiqueta } from "@/components/ui";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
+import { resumoDoEstoque } from "@/lib/estoque";
 
 export default async function Inicio() {
   await exigirSessao();
@@ -16,16 +17,14 @@ export default async function Inicio() {
 
   const hoje = hojeEmSaoPaulo();
 
-  const [doDia, proximos, clientes, servicos, produtos, saldos] = await Promise.all([
+  const [doDia, proximos, clientes, servicos, estoque] = await Promise.all([
     resumoDoDia(hoje),
     proximosAtendimentos(5),
     prisma.cliente.count(),
     prisma.servico.count({ where: { ativo: true } }),
-    prisma.produto.findMany({ where: { ativo: true }, select: { id: true, estoqueMinimo: true } }),
-    saldosPorProduto(),
+    // Com o estoque desligado, nem consulta o banco por isso.
+    ESTOQUE_ATIVO ? resumoDoEstoque() : null,
   ]);
-
-  const aRepor = produtos.filter((p) => (saldos.get(p.id) ?? 0) <= Number(p.estoqueMinimo)).length;
   const deHoje = doDia.atendimentos.filter((a) => a.status !== "CANCELADO");
 
   return (
@@ -81,11 +80,19 @@ export default async function Inicio() {
         </Cartao>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${estoque ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {[
           { href: "/clientes", rotulo: "Clientes", valor: clientes, sufixo: clientes === 1 ? "cadastrada" : "cadastradas", alerta: false },
           { href: "/servicos", rotulo: "Serviços", valor: servicos, sufixo: servicos === 1 ? "ativo" : "ativos", alerta: false },
-          { href: "/produtos", rotulo: "Produtos", valor: produtos.length, sufixo: aRepor > 0 ? `${aRepor} para repor` : "em estoque", alerta: aRepor > 0 },
+          ...(estoque
+            ? [{
+                href: "/produtos" as const,
+                rotulo: "Produtos",
+                valor: estoque.total,
+                sufixo: estoque.aRepor > 0 ? `${estoque.aRepor} para repor` : "em estoque",
+                alerta: estoque.aRepor > 0,
+              }]
+            : []),
         ].map((a) => (
           <Link key={a.href} href={a.href} className="group">
             <Cartao className="h-full p-5 transition group-hover:border-marca group-hover:shadow-md">

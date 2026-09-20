@@ -5,6 +5,7 @@ import { ROTULO_FORMA } from "@/lib/financeiro";
 import { formatarReal } from "@/lib/dinheiro";
 import { dataCurta, hora } from "@/lib/tempo";
 import { Cartao, EtiquetaStatus, Vazio } from "@/components/ui";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -61,23 +62,32 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
         </Link>
       </nav>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-4">
+      <div className={`mb-6 grid gap-4 ${ESTOQUE_ATIVO ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Cartao className="p-5">
           <p className="text-sm font-medium text-texto-suave">Entrou no mês</p>
           <p className="mt-1 text-2xl font-semibold text-positivo">{formatarReal(r.recebidoNoMes)}</p>
           <p className="text-xs text-texto-fraco">pela data do pagamento</p>
         </Cartao>
+        {ESTOQUE_ATIVO && (
+          <>
+            <Cartao className="p-5">
+              <p className="text-sm font-medium text-texto-suave">Produtos usados</p>
+              <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.custoProdutos)}</p>
+              <p className="text-xs text-texto-fraco">só dos concluídos</p>
+            </Cartao>
+            <Cartao className="p-5">
+              <p className="text-sm font-medium text-texto-suave">Sobrou</p>
+              <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
+                {formatarReal(r.sobra)}
+              </p>
+              <p className="text-xs text-texto-fraco">entrou menos produtos</p>
+            </Cartao>
+          </>
+        )}
         <Cartao className="p-5">
-          <p className="text-sm font-medium text-texto-suave">Produtos usados</p>
-          <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.custoProdutos)}</p>
-          <p className="text-xs text-texto-fraco">só dos concluídos</p>
-        </Cartao>
-        <Cartao className="p-5">
-          <p className="text-sm font-medium text-texto-suave">Sobrou</p>
-          <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
-            {formatarReal(r.sobra)}
-          </p>
-          <p className="text-xs text-texto-fraco">entrou menos produtos</p>
+          <p className="text-sm font-medium text-texto-suave">Total do mês</p>
+          <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.combinado)}</p>
+          <p className="text-xs text-texto-fraco">combinado nos atendimentos</p>
         </Cartao>
         <Cartao className="p-5">
           <p className="text-sm font-medium text-texto-suave">Ainda a receber</p>

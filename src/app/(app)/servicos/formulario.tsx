@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AreaTexto, Aviso, Campo, Cartao, Entrada } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 export type ProdutoDisponivel = {
   id: string;
@@ -109,6 +110,7 @@ export function FormularioServico({
         </div>
       </Cartao>
 
+      {ESTOQUE_ATIVO && (
       <Cartao className="p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Ficha técnica</h2>
         <p className="mt-1 mb-5 text-sm text-texto-fraco">
@@ -149,6 +151,7 @@ export function FormularioServico({
           </div>
         )}
       </Cartao>
+      )}
 
       <div className="flex items-center gap-3">
         <BotaoSubmit>{servico ? "Salvar alterações" : "Cadastrar serviço"}</BotaoSubmit>

@@ -5,11 +5,15 @@ import { dataCurta } from "@/lib/tempo";
 import { BotaoLink, Cartao, Etiqueta, Titulo, Vazio } from "@/components/ui";
 import { connection } from "next/server";
 import { exigirSessao } from "@/lib/sessao";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
+import { redirect } from "next/navigation";
 
 export default async function PaginaProdutos() {
   // Verificada de novo aqui, e não só no layout: numa navegação pelo
   // cliente o Next pode renderizar só este trecho, sem passar pelo layout.
   await exigirSessao();
+  // Endereço guardado nos favoritos não deve abrir uma tela que saiu do app.
+  if (!ESTOQUE_ATIVO) redirect("/");
 
   // Sem isto o Next pré-renderiza esta página no build e ela serve dados
   // congelados: nada aqui usa cookies/params, então ele a considera estática.

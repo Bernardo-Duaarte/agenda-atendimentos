@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { atualizarProduto, lancarMovimento } from "../acoes";
 import { FormularioProduto } from "../formulario";
@@ -8,6 +7,8 @@ import { formatarReal, paraCampoReal } from "@/lib/dinheiro";
 import { formatarQuantidade, saldoDoProduto } from "@/lib/estoque";
 import { dataCurta, paraInputDate } from "@/lib/tempo";
 import { exigirSessao } from "@/lib/sessao";
+import { ESTOQUE_ATIVO } from "@/lib/recursos";
+import { notFound, redirect } from "next/navigation";
 
 const ROTULO_TIPO = {
   ENTRADA: "Entrada",
@@ -20,6 +21,8 @@ export default async function PaginaProduto(props: PageProps<"/produtos/[id]">) 
   // Verificada de novo aqui, e não só no layout: numa navegação pelo
   // cliente o Next pode renderizar só este trecho, sem passar pelo layout.
   await exigirSessao();
+  // Endereço guardado nos favoritos não deve abrir uma tela que saiu do app.
+  if (!ESTOQUE_ATIVO) redirect("/");
 
   const { id } = await props.params;
 
