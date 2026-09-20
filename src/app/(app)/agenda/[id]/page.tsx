@@ -20,6 +20,8 @@ import { formatarQuantidade } from "@/lib/estoque";
 import { dataCurta, dataLonga, hora, janelaOcupada, paraInputDate, paraInputTime } from "@/lib/tempo";
 import { linkWhatsApp, mensagemLembrete } from "@/lib/whatsapp";
 import { formatarDistancia } from "@/lib/deslocamento";
+import { janelaComDescricao } from "@/lib/janela";
+import { dentroDaJanela } from "@/lib/precificacao";
 
 function BotaoAcao({
   children,
@@ -42,7 +44,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
   await exigirSessao();
   const { id } = await props.params;
 
-  const [atendimento, clientes, servicos, agora] = await Promise.all([
+  const [atendimento, clientes, servicos, agora, regraDePreco] = await Promise.all([
     prisma.agendamento.findUnique({
       where: { id },
       include: {
@@ -56,9 +58,13 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
     prisma.servico.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, precoCentavos: true, duracaoMin: true, percentualSinal: true },
+      select: {
+        id: true, nome: true, precoCentavos: true, duracaoMin: true,
+        percentualSinal: true, precoForaHorarioCentavos: true,
+      },
     }),
     momentoAgora(),
+    janelaComDescricao(),
   ]);
 
   if (!atendimento) notFound();
@@ -67,6 +73,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
     const janela = janelaOcupada(a);
   const temTransito = a.deslocamentoIdaMin > 0 || a.deslocamentoVoltaMin > 0;
   const consumo = a.movimentos.filter((m) => m.tipo === "CONSUMO");
+  const foraDoHorario = !dentroDaJanela(a.inicio, regraDePreco.janela);
 
   const conta = resumoFinanceiro({
     status: a.status,
@@ -99,6 +106,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
               <EtiquetaStatus status={a.status} />
               <Etiqueta>{a.local === "DOMICILIO" ? "domicílio" : "estúdio"}</Etiqueta>
               {a.lembreteEnviadoEm && <Etiqueta tom="ok">lembrete enviado</Etiqueta>}
+              {foraDoHorario && <Etiqueta tom="alerta">fora do horário</Etiqueta>}
             </div>
             <p className="text-lg font-medium capitalize text-texto">{dataLonga(a.inicio)}</p>
             <p className="text-2xl font-semibold text-texto">
@@ -111,6 +119,11 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
               </p>
             )}
             <p className="mt-2 text-sm text-texto-suave">{a.servico.nome}</p>
+            {foraDoHorario && (
+              <p className="mt-0.5 text-sm text-atencao-texto">
+                Fora de {regraDePreco.descricao}
+              </p>
+            )}
             {a.endereco && <p className="mt-1 text-sm text-texto-suave">{a.endereco}</p>}
           </div>
 
@@ -339,13 +352,16 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">Editar</h2>
       <FormularioAtendimento
         acao={atualizarAtendimento}
+        janela={regraDePreco.janela}
+        descricaoJanela={regraDePreco.descricao}
         clientes={clientes}
         servicos={servicos.map((s) => ({
           id: s.id,
           nome: s.nome,
           duracaoMin: s.duracaoMin,
-          precoReais: paraCampoReal(s.precoCentavos),
           percentualSinal: s.percentualSinal,
+          precoCentavos: s.precoCentavos,
+          precoForaHorarioCentavos: s.precoForaHorarioCentavos,
         }))}
         atendimento={{
           id: a.id,

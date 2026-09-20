@@ -36,6 +36,8 @@ const SERVICOS = [
     nome: "Maquiagem social",
     descricao: "Pele, olhos e boca para festa ou evento. Inclui cílios postiços.",
     precoCentavos: 18000,
+    // Fora do horário de trabalho (ver Configuração) o preço sobe.
+    precoForaHorarioCentavos: 21000,
     duracaoMin: 60,
     ficha: { primer: "2", base: "4", corretivo: "1", po: "0.5", cilios: "1", batom: "1", fixador: "3" },
   },
@@ -43,15 +45,9 @@ const SERVICOS = [
     nome: "Maquiagem de noiva",
     descricao: "Maquiagem de longa duração, à prova de lágrima e foto. Inclui teste prévio.",
     precoCentavos: 65000,
+    precoForaHorarioCentavos: null,
     duracaoMin: 150,
     ficha: { primer: "3", base: "7", corretivo: "2", po: "1", cilios: "1", batom: "1", fixador: "6" },
-  },
-  {
-    nome: "Maquiagem de madrinha",
-    descricao: "Acabamento de festa, pensado para durar a cerimônia inteira.",
-    precoCentavos: 25000,
-    duracaoMin: 75,
-    ficha: { primer: "2", base: "5", corretivo: "1.5", po: "0.7", cilios: "1", batom: "1", fixador: "4" },
   },
 ];
 
@@ -96,6 +92,7 @@ async function main() {
         nome: s.nome,
         descricao: s.descricao,
         precoCentavos: s.precoCentavos,
+        precoForaHorarioCentavos: s.precoForaHorarioCentavos,
         duracaoMin: s.duracaoMin,
         insumos: {
           create: Object.entries(s.ficha).map(([chave, quantidade]) => ({

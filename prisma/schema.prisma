@@ -91,6 +91,14 @@ model Servico {
   /// atendimento específico.
   percentualSinal Int @default(30)
 
+  /// Preço cobrado FORA do horário comercial (ver Configuracao): de madrugada,
+  /// à noite ou em dia que não é de trabalho.
+  ///
+  /// Nulo significa "mesmo preço sempre" — é o que vale para um serviço que
+  /// não tem acréscimo. Valor absoluto, e não percentual, porque é assim que
+  /// o preço é combinado com a cliente: "nesse horário fica 210".
+  precoForaHorarioCentavos Int?
+
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
@@ -235,9 +243,19 @@ model Configuracao {
   telefone         String  @default("")
   enderecoEstudio  String?
 
-  /// Horário padrão de trabalho, para a agenda saber o que oferecer
-  horaAbertura String @default("09:00")
-  horaFechamento String @default("19:00")
+  /// Horário e dias de trabalho — e, por consequência, quando vale o preço
+  /// normal. Um atendimento que começa fora desta janela cobra o preço
+  /// diferenciado do serviço, quando ele tiver um.
+  ///
+  /// São a MESMA coisa de propósito: separar "quando eu trabalho" de "quando
+  /// custa mais" criaria dois pares de horários quase iguais para manter em
+  /// sincronia, e a diferença entre eles não existe na prática.
+  horaAbertura   String @default("07:00")
+  horaFechamento String @default("21:00")
+
+  /// Dias de trabalho, pelo número da semana: 1 = segunda ... 7 = domingo.
+  /// O padrão exclui o domingo.
+  diasNormais String @default("1,2,3,4,5,6")
 
   /// Fórmula da taxa de deslocamento, no formato em que o Uber cobra:
   /// base + (por km × km) + (por minuto × minutos), tudo em centavos.

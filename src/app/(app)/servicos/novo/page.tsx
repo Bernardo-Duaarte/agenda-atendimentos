@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { criarServico } from "../acoes";
 import { FormularioServico } from "../formulario";
 import { Titulo } from "@/components/ui";
+import { janelaComDescricao } from "@/lib/janela";
 import { connection } from "next/server";
 import { exigirSessao } from "@/lib/sessao";
 
@@ -14,16 +15,20 @@ export default async function NovoServico() {
   // congelados: nada aqui usa cookies/params, então ele a considera estática.
   await connection();
 
-  const produtos = await prisma.produto.findMany({
+  const [{ descricao }, produtos] = await Promise.all([
+    janelaComDescricao(),
+    prisma.produto.findMany({
     where: { ativo: true },
     orderBy: { nome: "asc" },
-    select: { id: true, nome: true, marca: true, unidade: true },
-  });
+      select: { id: true, nome: true, marca: true, unidade: true },
+    }),
+  ]);
 
   return (
     <>
       <Titulo>Novo serviço</Titulo>
-      <FormularioServico acao={criarServico} produtos={produtos} />
+      <FormularioServico
+        descricaoJanela={descricao} acao={criarServico} produtos={produtos} />
     </>
   );
 }

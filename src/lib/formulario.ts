@@ -139,3 +139,10 @@ export function inteiroOpcional(fd: FormData, campo: string): number | null {
   const n = Number(v.replace(/\D/g, ""));
   return Number.isInteger(n) && n >= 0 ? n : null;
 }
+
+/** Dinheiro que pode não vir. Vazio devolve null — diferente de zero. */
+export function dinheiroOpcional(fd: FormData, campo: string, rotulo: string): number | null {
+  const v = fd.get(campo);
+  if (typeof v !== "string" || v.trim() === "") return null;
+  return dinheiro(fd, campo, rotulo);
+}

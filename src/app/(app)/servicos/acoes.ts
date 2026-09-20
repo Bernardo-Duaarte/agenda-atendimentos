@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import {
   comValidacao,
+  dinheiroOpcional,
   percentual,
   dinheiro,
   inteiro,
@@ -22,6 +23,8 @@ function dadosDoServico(fd: FormData) {
     precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
     duracaoMin: inteiro(fd, "duracaoMin", "Duração", { min: 5 }),
     percentualSinal: percentual(fd, "percentualSinal", "Sinal"),
+    // Vazio significa "mesmo preço sempre" — não zero, que seria de graça.
+    precoForaHorarioCentavos: dinheiroOpcional(fd, "precoForaHorarioCentavos", "Preço fora do horário"),
   };
 }
 

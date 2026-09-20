@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { atualizarServico, excluirServico } from "../acoes";
 import { FormularioServico } from "../formulario";
 import { Titulo } from "@/components/ui";
+import { janelaComDescricao } from "@/lib/janela";
 import { paraCampoReal } from "@/lib/dinheiro";
 import { exigirSessao } from "@/lib/sessao";
 
@@ -13,13 +14,14 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
 
   const { id } = await props.params;
 
-  const [servico, produtos] = await Promise.all([
+  const [servico, produtos, { descricao }] = await Promise.all([
     prisma.servico.findUnique({ where: { id }, include: { insumos: true } }),
     prisma.produto.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, marca: true, unidade: true },
     }),
+    janelaComDescricao(),
   ]);
 
   if (!servico) notFound();
@@ -33,6 +35,7 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
       <Titulo>{servico.nome}</Titulo>
 
       <FormularioServico
+        descricaoJanela={descricao}
         acao={atualizarServico}
         produtos={produtos}
         servico={{
@@ -42,6 +45,10 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
           precoReais: paraCampoReal(servico.precoCentavos),
           duracaoMin: servico.duracaoMin,
           percentualSinal: servico.percentualSinal,
+          precoForaHorarioReais:
+            servico.precoForaHorarioCentavos === null
+              ? ""
+              : paraCampoReal(servico.precoForaHorarioCentavos),
           ficha,
         }}
       />

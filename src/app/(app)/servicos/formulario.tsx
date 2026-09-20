@@ -20,6 +20,7 @@ export type ServicoEmEdicao = {
   precoReais: string;
   duracaoMin: number;
   percentualSinal: number;
+  precoForaHorarioReais: string;
   /** produtoId -> quantidade já cadastrada, como texto de campo */
   ficha: Record<string, string>;
 };
@@ -28,10 +29,13 @@ export function FormularioServico({
   acao,
   produtos,
   servico,
+  descricaoJanela,
 }: {
   acao: (estado: EstadoFormulario, fd: FormData) => Promise<EstadoFormulario>;
   produtos: ProdutoDisponivel[];
   servico?: ServicoEmEdicao;
+  /** "segunda a sábado, das 07:00 às 21:00" — para explicar a regra. */
+  descricaoJanela: string;
 }) {
   const [estado, enviar] = useActionState(acao, estadoInicial);
   const erro = (campo: string) => estado.erros?.[campo];
@@ -48,6 +52,20 @@ export function FormularioServico({
 
         <Campo rotulo="Descrição" erro={erro("descricao")} dica="Opcional. O que está incluído.">
           <AreaTexto name="descricao" defaultValue={servico?.descricao ?? ""} placeholder="Pele, olhos e boca. Inclui cílios postiços." />
+        </Campo>
+
+        <Campo
+          rotulo="Preço fora do horário de trabalho"
+          erro={erro("precoForaHorarioCentavos")}
+          dica={`Cobrado quando o atendimento começa fora de ${descricaoJanela}. Deixe vazio se o preço for o mesmo sempre.`}
+        >
+          <Entrada
+            name="precoForaHorarioCentavos"
+            defaultValue={servico?.precoForaHorarioReais ?? ""}
+            erro={!!erro("precoForaHorarioCentavos")}
+            inputMode="decimal"
+            placeholder="deixe vazio para não cobrar diferente"
+          />
         </Campo>
 
         <div className="grid gap-5 sm:grid-cols-3">

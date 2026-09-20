@@ -34,12 +34,20 @@ export async function salvarConfiguracao(
       throw new ErroDeCampo("horaFechamento", "O fechamento precisa ser depois da abertura.");
     }
 
+    // Cada dia vem como uma caixa marcada; sem nenhuma, toda marcação cairia
+    // no preço diferenciado — o que quase nunca é a intenção.
+    const dias = fd.getAll("diasNormais").map(String).filter((d) => /^[1-7]$/.test(d));
+    if (dias.length === 0) {
+      throw new ErroDeCampo("diasNormais", "Marque pelo menos um dia de trabalho.");
+    }
+
     const dados = {
       nomeProfissional: textoOpcional(fd, "nomeProfissional") ?? "",
       telefone: textoOpcional(fd, "telefone") ?? "",
       enderecoEstudio: textoOpcional(fd, "enderecoEstudio"),
       horaAbertura: abertura,
       horaFechamento: fechamento,
+      diasNormais: dias.join(","),
       taxaBaseCentavos: dinheiro(fd, "taxaBaseCentavos", "Valor base"),
       taxaPorKmCentavos: dinheiro(fd, "taxaPorKmCentavos", "Valor por km"),
       taxaPorMinutoCentavos: dinheiro(fd, "taxaPorMinutoCentavos", "Valor por minuto"),

@@ -6,14 +6,19 @@ import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 import { calcularDeslocamento } from "./acao-deslocamento";
+import { precoParaOHorario, type JanelaNormal } from "@/lib/precificacao";
+import { paraCampoReal, paraCentavos } from "@/lib/dinheiro";
+import { paraUtc } from "@/lib/tempo";
 
 export type ClienteOpcao = { id: string; nome: string; enderecoPadrao: string | null };
 export type ServicoOpcao = {
   id: string;
   nome: string;
-  precoReais: string;
   duracaoMin: number;
   percentualSinal: number;
+  /** Em centavos, para a regra de horário decidir qual vale. */
+  precoCentavos: number;
+  precoForaHorarioCentavos: number | null;
 };
 
 export type AtendimentoEmEdicao = {
@@ -39,6 +44,8 @@ export function FormularioAtendimento({
   servicos,
   atendimento,
   dataInicial,
+  janela,
+  descricaoJanela,
 }: {
   acao: (estado: EstadoFormulario, fd: FormData) => Promise<EstadoFormulario>;
   clientes: ClienteOpcao[];
@@ -46,6 +53,9 @@ export function FormularioAtendimento({
   atendimento?: AtendimentoEmEdicao;
   /** Deixa o campo de data já preenchido ao marcar a partir de um dia da agenda. */
   dataInicial?: string;
+  /** Quando vale o preço normal. A mesma regra roda no servidor ao salvar. */
+  janela: JanelaNormal;
+  descricaoJanela: string;
 }) {
   const [estado, enviar] = useActionState(acao, estadoInicial);
   const erro = (campo: string) => estado.erros?.[campo];
@@ -53,17 +63,90 @@ export function FormularioAtendimento({
   const [clienteId, setClienteId] = useState(atendimento?.clienteId ?? "");
   const [servicoId, setServicoId] = useState(atendimento?.servicoId ?? servicos[0]?.id ?? "");
   const [local, setLocal] = useState<"ESTUDIO" | "DOMICILIO">(atendimento?.local ?? "ESTUDIO");
-  const [preco, setPreco] = useState(atendimento?.precoReais ?? servicos[0]?.precoReais ?? "");
-  const [sinal, setSinal] = useState(
-    atendimento?.sinalReais ?? sinalSugerido(servicos[0]?.precoReais ?? "", servicos[0]?.percentualSinal ?? 30),
-  );
+  const [data, setData] = useState(atendimento?.data ?? dataInicial ?? "");
+  const [horaInicio, setHoraInicio] = useState(atendimento?.hora ?? "");
   const [endereco, setEndereco] = useState(atendimento?.endereco ?? "");
   const [ida, setIda] = useState(String(atendimento?.deslocamentoIdaMin ?? 30));
   const [volta, setVolta] = useState(String(atendimento?.deslocamentoVoltaMin ?? 30));
   const [taxa, setTaxa] = useState(atendimento?.taxaReais ?? "0");
+  const [metros, setMetros] = useState<number | null>(atendimento?.distanciaMetros ?? null);
   const [calculando, iniciarCalculo] = useTransition();
   const [avisoRota, setAvisoRota] = useState<{ ok: boolean; texto: string } | null>(null);
-  const [metros, setMetros] = useState<number | null>(atendimento?.distanciaMetros ?? null);
+
+  const servicoInicial = servicos[0];
+
+  /**
+   * Qual preço vale para este serviço neste horário.
+   *
+   * A mesma função roda no servidor ao salvar; aqui ela só antecipa o
+   * resultado, para o valor mudar na tela assim que você escolhe o dia.
+   */
+  function precoDoMomento(s: ServicoOpcao | undefined, dia: string, hh: string) {
+    if (!s) return { centavos: 0, fora: false, temDiferenciado: false };
+    if (!dia || !hh) {
+      return { centavos: s.precoCentavos, fora: false, temDiferenciado: s.precoForaHorarioCentavos != null };
+    }
+    try {
+      const r = precoParaOHorario(s, paraUtc(dia, hh), janela);
+      return { centavos: r.centavos, fora: r.foraDoHorario, temDiferenciado: r.temPrecoDiferenciado };
+    } catch {
+      // Data ou hora pela metade enquanto se digita: mantém o preço normal.
+      return { centavos: s.precoCentavos, fora: false, temDiferenciado: s.precoForaHorarioCentavos != null };
+    }
+  }
+
+  const inicial = precoDoMomento(
+    atendimento ? servicos.find((x) => x.id === atendimento.servicoId) : servicoInicial,
+    atendimento?.data ?? dataInicial ?? "",
+    atendimento?.hora ?? "",
+  );
+
+  const [preco, setPreco] = useState(atendimento?.precoReais ?? paraCampoReal(inicial.centavos));
+  const [sinal, setSinal] = useState(
+    atendimento?.sinalReais ??
+      paraCampoReal(Math.round((inicial.centavos * (servicoInicial?.percentualSinal ?? 30)) / 100)),
+  );
+  const [horarioFora, setHorarioFora] = useState(inicial.fora);
+
+  const servico = servicos.find((s) => s.id === servicoId);
+  const cliente = clientes.find((c) => c.id === clienteId);
+
+  /** Reaplica preço e sinal quando serviço, dia ou hora mudam. */
+  function reprecificar(s: ServicoOpcao | undefined, dia: string, hh: string) {
+    const r = precoDoMomento(s, dia, hh);
+    setHorarioFora(r.fora);
+    setPreco(paraCampoReal(r.centavos));
+    setSinal(paraCampoReal(Math.round((r.centavos * (s?.percentualSinal ?? 30)) / 100)));
+  }
+
+  function escolherServico(id: string) {
+    setServicoId(id);
+    reprecificar(servicos.find((x) => x.id === id), data, horaInicio);
+  }
+
+  function escolherData(novo: string) {
+    setData(novo);
+    reprecificar(servico, novo, horaInicio);
+  }
+
+  function escolherHora(novo: string) {
+    setHoraInicio(novo);
+    reprecificar(servico, data, novo);
+  }
+
+  /** Ao ir para domicílio, sugere o endereço que a cliente já tem cadastrado. */
+  function escolherLocal(novo: "ESTUDIO" | "DOMICILIO") {
+    setLocal(novo);
+    if (novo === "DOMICILIO" && !endereco && cliente?.enderecoPadrao) {
+      setEndereco(cliente.enderecoPadrao);
+    }
+  }
+
+  function escolherCliente(id: string) {
+    setClienteId(id);
+    const c = clientes.find((x) => x.id === id);
+    if (local === "DOMICILIO" && !endereco && c?.enderecoPadrao) setEndereco(c.enderecoPadrao);
+  }
 
   /**
    * Consulta o mapa e preenche ida, volta e taxa.
@@ -87,36 +170,15 @@ export function FormularioAtendimento({
     });
   }
 
-  const servico = servicos.find((s) => s.id === servicoId);
-  const cliente = clientes.find((c) => c.id === clienteId);
-
-  /** Trocar de serviço traz preço e sinal da tabela — ambos continuam editáveis. */
-  function escolherServico(id: string) {
-    setServicoId(id);
-    const s = servicos.find((x) => x.id === id);
-    if (!s) return;
-    setPreco(s.precoReais);
-    setSinal(sinalSugerido(s.precoReais, s.percentualSinal));
-  }
-
-  /** Mexer no preço reajusta o sinal sugerido, mantendo o percentual. */
+  /** Mexer no preço à mão reajusta só o sinal, mantendo o percentual. */
   function escolherPreco(novo: string) {
     setPreco(novo);
-    if (servico) setSinal(sinalSugerido(novo, servico.percentualSinal));
-  }
-
-  /** Ao ir para domicílio, sugere o endereço que a cliente já tem cadastrado. */
-  function escolherLocal(novo: "ESTUDIO" | "DOMICILIO") {
-    setLocal(novo);
-    if (novo === "DOMICILIO" && !endereco && cliente?.enderecoPadrao) {
-      setEndereco(cliente.enderecoPadrao);
+    if (!servico) return;
+    try {
+      setSinal(paraCampoReal(Math.round((paraCentavos(novo) * servico.percentualSinal) / 100)));
+    } catch {
+      // Preço no meio da digitação: deixa o sinal como está.
     }
-  }
-
-  function escolherCliente(id: string) {
-    setClienteId(id);
-    const c = clientes.find((x) => x.id === id);
-    if (local === "DOMICILIO" && !endereco && c?.enderecoPadrao) setEndereco(c.enderecoPadrao);
   }
 
   if (clientes.length === 0 || servicos.length === 0) {
@@ -178,7 +240,8 @@ export function FormularioAtendimento({
             <Entrada
               type="date"
               name="data"
-              defaultValue={atendimento?.data ?? dataInicial}
+              value={data}
+              onChange={(e) => escolherData(e.target.value)}
               erro={!!erro("data")}
               required
             />
@@ -189,7 +252,14 @@ export function FormularioAtendimento({
             erro={erro("hora")}
             dica={servico ? `Termina ${servico.duracaoMin} min depois.` : undefined}
           >
-            <Entrada type="time" name="hora" defaultValue={atendimento?.hora} erro={!!erro("hora")} required />
+            <Entrada
+              type="time"
+              name="hora"
+              value={horaInicio}
+              onChange={(e) => escolherHora(e.target.value)}
+              erro={!!erro("hora")}
+              required
+            />
           </Campo>
         </div>
       </Cartao>
@@ -298,7 +368,11 @@ export function FormularioAtendimento({
           <Campo
             rotulo="Preço do atendimento"
             erro={erro("precoCentavos")}
-            dica="Vem da tabela do serviço. Fica congelado neste atendimento."
+            dica={
+              horarioFora && servico?.precoForaHorarioCentavos != null
+                ? `Fora de ${descricaoJanela} — preço diferenciado aplicado.`
+                : "Vem da tabela do serviço. Fica congelado neste atendimento."
+            }
           >
             <Entrada
               name="precoCentavos"
@@ -341,21 +415,4 @@ export function FormularioAtendimento({
       </div>
     </form>
   );
-}
-
-/**
- * Sugere o sinal a partir do preço digitado e do percentual do serviço.
- *
- * Trabalha com o texto do campo — "1.234,56" — e devolve texto, porque é isso
- * que o formulário mostra. A conta que vale é refeita no servidor, em centavos
- * inteiros; esta aqui é só para você ver o número antes de salvar.
- */
-function sinalSugerido(precoTexto: string, percentual: number): string {
-  const limpo = precoTexto.trim().replace(/\./g, "").replace(",", ".");
-  const preco = Number(limpo);
-  if (!Number.isFinite(preco) || preco <= 0) return "";
-  return ((preco * percentual) / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
