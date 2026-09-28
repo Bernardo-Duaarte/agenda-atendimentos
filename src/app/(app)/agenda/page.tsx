@@ -4,6 +4,7 @@ import { deslocarDia, hojeEmSaoPaulo, resumoDoDia } from "@/lib/agenda-consulta"
 import { dataLonga, hora, janelaOcupada } from "@/lib/tempo";
 import { formatarReal } from "@/lib/dinheiro";
 import { BotaoLink, Cartao, Etiqueta, EtiquetaStatus, Vazio } from "@/components/ui";
+import { SeletorDeDia } from "./seletor-de-dia";
 
 export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   await exigirSessao();
@@ -31,7 +32,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
         <BotaoLink href="/agenda/novo">Marcar atendimento</BotaoLink>
       </div>
 
-      <nav className="mb-5 flex items-center gap-2">
+      <nav className="mb-5 flex flex-wrap items-center gap-2">
         <Link
           href={`/agenda?d=${deslocarDia(dia, -1)}`}
           className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
@@ -52,6 +53,10 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
         >
           Próximo dia →
         </Link>
+
+        <div className="ml-auto">
+          <SeletorDeDia dia={dia} />
+        </div>
       </nav>
 
       {atendimentos.length === 0 ? (

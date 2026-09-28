@@ -1,8 +1,11 @@
-import "server-only";
 import { janelaOcupada } from "./tempo";
 
 /**
  * Regras de ocupação da agenda.
+ *
+ * Lógica pura, sem banco e sem segredo: pode rodar nos dois lados. É o que
+ * permite testá-la direto e, no futuro, mostrar o conflito no formulário
+ * antes de salvar.
  *
  * O que ocupa a agenda não é o atendimento, é a janela: de `início − ida` até
  * `fim + volta`. Um domicílio às 14h com 40 min de trânsito bloqueia desde as
@@ -38,12 +41,39 @@ export type JanelaDeAtendimento = {
   deslocamentoVoltaMin: number;
 };
 
+/** Quem o serviço ocupa. Dois atendimentos só brigam se disputarem alguém. */
+export type Ocupacao = {
+  ocupaMaquiadora: boolean;
+  ocupaPenteadista: boolean;
+};
+
+export function disputamAMesmaPessoa(a: Ocupacao, b: Ocupacao): boolean {
+  return (
+    (a.ocupaMaquiadora && b.ocupaMaquiadora) ||
+    (a.ocupaPenteadista && b.ocupaPenteadista)
+  );
+}
+
 /** Duas janelas se sobrepõem quando uma começa antes da outra terminar. */
 export function haSobreposicao(a: JanelaDeAtendimento, b: JanelaDeAtendimento): boolean {
   const ja = janelaOcupada(a);
   const jb = janelaOcupada(b);
   // Encostar não é conflito: terminar 15h e começar 15h é sequência válida.
   return ja.de < jb.ate && jb.de < ja.ate;
+}
+
+/**
+ * Conflito de verdade: os horários se cruzam E a mesma pessoa é necessária.
+ *
+ * Sobreposição sozinha não basta. Uma maquiagem às 14h e um penteado às 14h
+ * acontecem ao mesmo tempo sem problema nenhum — quem faz cada um é outra
+ * pessoa. O que não pode é duas maquiagens juntas.
+ */
+export function haConflito(
+  a: JanelaDeAtendimento & { servico: Ocupacao },
+  b: JanelaDeAtendimento & { servico: Ocupacao },
+): boolean {
+  return haSobreposicao(a, b) && disputamAMesmaPessoa(a.servico, b.servico);
 }
 
 /**

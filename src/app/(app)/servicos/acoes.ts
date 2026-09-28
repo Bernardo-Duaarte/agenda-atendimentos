@@ -16,6 +16,12 @@ import {
   type EstadoFormulario,
 } from "@/lib/formulario";
 
+/** "MAQUIADORA" | "PENTEADISTA" | "AMBAS" — quem o serviço ocupa. */
+function quemFaz(fd: FormData): string {
+  const v = String(fd.get("quemFaz") ?? "MAQUIADORA");
+  return ["MAQUIADORA", "PENTEADISTA", "AMBAS"].includes(v) ? v : "MAQUIADORA";
+}
+
 function dadosDoServico(fd: FormData) {
   return {
     nome: texto(fd, "nome", "Nome"),
@@ -23,6 +29,9 @@ function dadosDoServico(fd: FormData) {
     precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
     duracaoMin: inteiro(fd, "duracaoMin", "Duração", { min: 5 }),
     percentualSinal: percentual(fd, "percentualSinal", "Sinal"),
+    // Decide com o que este serviço conflita na agenda.
+    ocupaMaquiadora: quemFaz(fd) !== "PENTEADISTA",
+    ocupaPenteadista: quemFaz(fd) !== "MAQUIADORA",
     // Vazio significa "mesmo preço sempre" — não zero, que seria de graça.
     precoForaHorarioCentavos: dinheiroOpcional(fd, "precoForaHorarioCentavos", "Preço fora do horário"),
   };

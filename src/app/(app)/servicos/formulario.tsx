@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { AreaTexto, Aviso, Campo, Cartao, Entrada } from "@/components/ui";
+import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
@@ -22,6 +22,7 @@ export type ServicoEmEdicao = {
   duracaoMin: number;
   percentualSinal: number;
   precoForaHorarioReais: string;
+  quemFaz: "MAQUIADORA" | "PENTEADISTA" | "AMBAS";
   /** produtoId -> quantidade já cadastrada, como texto de campo */
   ficha: Record<string, string>;
 };
@@ -53,6 +54,18 @@ export function FormularioServico({
 
         <Campo rotulo="Descrição" erro={erro("descricao")} dica="Opcional. O que está incluído.">
           <AreaTexto name="descricao" defaultValue={servico?.descricao ?? ""} placeholder="Pele, olhos e boca. Inclui cílios postiços." />
+        </Campo>
+
+        <Campo
+          rotulo="Quem fica ocupada"
+          erro={erro("quemFaz")}
+          dica="Define com o que este serviço conflita. Você pode maquiar uma cliente enquanto a penteadista atende outra — o sistema só bloqueia quando a mesma pessoa é necessária nos dois."
+        >
+          <Selecao name="quemFaz" defaultValue={servico?.quemFaz ?? "MAQUIADORA"}>
+            <option value="MAQUIADORA">Você — maquiagem</option>
+            <option value="PENTEADISTA">Penteadista — cabelo</option>
+            <option value="AMBAS">As duas — serviço combinado</option>
+          </Selecao>
         </Campo>
 
         <Campo

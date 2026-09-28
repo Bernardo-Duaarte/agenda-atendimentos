@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import { hora, paraUtc } from "@/lib/tempo";
-import { bloqueiaHorario, descreverConflito, haSobreposicao, intervaloDeBusca } from "@/lib/agenda";
+import { bloqueiaHorario, descreverConflito, haConflito, intervaloDeBusca } from "@/lib/agenda";
 import { calcularSinal } from "@/lib/financeiro";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
 import {
@@ -49,6 +49,12 @@ async function lerAtendimento(fd: FormData) {
   }
 
   return {
+    // Só para a verificação de conflito saber quem o serviço ocupa; não é
+    // gravado no atendimento (ver `dadosParaGravar`).
+    ocupacao: {
+      ocupaMaquiadora: servico.ocupaMaquiadora,
+      ocupaPenteadista: servico.ocupaPenteadista,
+    },
     clienteId: texto(fd, "clienteId", "Cliente"),
     servicoId,
     inicio,
@@ -81,6 +87,7 @@ async function garantirHorarioLivre(
     fim: Date;
     deslocamentoIdaMin: number;
     deslocamentoVoltaMin: number;
+    servico: { ocupaMaquiadora: boolean; ocupaPenteadista: boolean };
   },
   ignorarId?: string,
 ) {
@@ -92,14 +99,17 @@ async function garantirHorarioLivre(
       status: { not: "CANCELADO" },
       inicio: { gte: busca.de, lte: busca.ate },
     },
-    include: { cliente: { select: { nome: true } } },
+    include: {
+      cliente: { select: { nome: true } },
+      servico: { select: { ocupaMaquiadora: true, ocupaPenteadista: true } },
+    },
   });
 
   // Só barra o que bloqueia de verdade. Um pré-agendamento sobreposto passa e
   // aparece como aviso na tela do dia — quem pagar o sinal fica com o horário.
   const choque = vizinhos
     .filter((v) => bloqueiaHorario(v.status))
-    .find((v) => haSobreposicao({ id: "novo", ...candidato }, v));
+    .find((v) => haConflito({ id: "novo", ...candidato }, v));
 
   if (choque) throw new ErroDeCampo("hora", descreverConflito(choque, hora));
 }
@@ -117,9 +127,11 @@ export async function criarAtendimento(
     const escolhido = String(fd.get("status") ?? "");
     const status = escolhido === "PENDENTE" ? "PENDENTE" : "PRE_AGENDAMENTO";
 
+    const { ocupacao, ...paraGravar } = dados;
+
     await prisma.$transaction(async (tx) => {
-      await garantirHorarioLivre(tx, dados);
-      await tx.agendamento.create({ data: { ...dados, status } });
+      await garantirHorarioLivre(tx, { ...paraGravar, servico: ocupacao });
+      await tx.agendamento.create({ data: { ...paraGravar, status } });
     });
 
     revalidatePath("/agenda");
@@ -137,9 +149,11 @@ export async function atualizarAtendimento(
     const id = texto(fd, "id", "Atendimento");
     const dados = await lerAtendimento(fd);
 
+    const { ocupacao, ...paraGravar } = dados;
+
     await prisma.$transaction(async (tx) => {
-      await garantirHorarioLivre(tx, dados, id);
-      await tx.agendamento.update({ where: { id }, data: dados });
+      await garantirHorarioLivre(tx, { ...paraGravar, servico: ocupacao }, id);
+      await tx.agendamento.update({ where: { id }, data: paraGravar });
     });
 
     revalidatePath("/agenda");

@@ -1,4 +1,4 @@
-import { hora } from "./tempo";
+import { dataCurta, hora, paraInputDate } from "./tempo";
 
 /**
  * Não existe API aqui de propósito. O link wa.me abre o WhatsApp com a
@@ -19,26 +19,63 @@ export function linkWhatsApp(telefone: string, mensagem: string): string {
   return `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
 }
 
-export function mensagemLembrete(a: {
-  cliente: { nome: string };
-  servico: { nome: string };
-  inicio: Date;
-  local: "ESTUDIO" | "DOMICILIO";
-  endereco: string | null;
-}): string {
+/** "14h30", e "14h" quando é hora cheia. */
+function horaPorExtenso(d: Date): string {
+  const [hh, mm] = hora(d).split(":");
+  return mm === "00" ? `${hh}h` : `${hh}h${mm}`;
+}
+
+/**
+ * "amanhã", "hoje" ou a data.
+ *
+ * O texto do lembrete diz "amanhã", que é quando ele costuma ser enviado. Mas
+ * dizer "amanhã" numa mensagem mandada com uma semana de antecedência seria
+ * errado — e faria a cliente aparecer no dia errado. A palavra acompanha a
+ * distância real até o atendimento.
+ */
+function quando(inicio: Date, agora: Date): string {
+  const dia = (d: Date) => paraInputDate(d); // já no fuso de São Paulo
+  const hoje = dia(agora);
+  const amanha = dia(new Date(agora.getTime() + 24 * 60 * 60 * 1000));
+  const doAtendimento = dia(inicio);
+
+  if (doAtendimento === hoje) return "hoje";
+  if (doAtendimento === amanha) return "amanhã";
+  return `dia ${dataCurta(inicio)}`;
+}
+
+export function mensagemLembrete(
+  a: {
+    cliente: { nome: string };
+    servico: { nome: string };
+    inicio: Date;
+    local: "ESTUDIO" | "DOMICILIO";
+    endereco: string | null;
+  },
+  opcoes: { enderecoEstudio?: string | null; agora?: Date } = {},
+): string {
   const primeiroNome = a.cliente.nome.trim().split(/\s+/)[0];
+  const agora = opcoes.agora ?? new Date();
+
+  // No estúdio a cliente vem até você; em domicílio é o contrário. O endereço
+  // do estúdio vem da Configuração para não ficar dois lugares para atualizar
+  // no dia em que você mudar de sala.
   const onde =
-    a.local === "DOMICILIO" && a.endereco
-      ? `Vou até você: ${a.endereco}.`
-      : "Te espero aqui!";
+    a.local === "DOMICILIO"
+      ? a.endereco
+        ? `Vou até você: ${a.endereco}.`
+        : "Vou até você."
+      : opcoes.enderecoEstudio
+        ? `Te espero na ${opcoes.enderecoEstudio}.`
+        : "Te espero aqui!";
 
   return [
-    `Oi, ${primeiroNome}! Tudo bem?`,
+    `Ei, ${primeiroNome}! Tudo bem?`,
     ``,
-    `Passando pra confirmar seu horário de ${a.servico.nome} amanhã às ${hora(a.inicio)}.`,
+    `Você tem um agendamento para ${a.servico.nome}, ${quando(a.inicio, agora)}, às ${horaPorExtenso(a.inicio)}.`,
     onde,
     ``,
-    `Qualquer coisa é só me chamar por aqui.`,
+    `Caso tenha qualquer dúvida, me mande uma mensagem por aqui! 😚`,
   ].join("\n");
 }
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { paraInputDate, paraInputTime, paraUtc } from "./tempo";
-import { haSobreposicao } from "./agenda";
+import { haConflito } from "./agenda";
 
 /**
  * Consultas da agenda.
@@ -59,13 +59,16 @@ async function conflitosNoDia(dataTexto: string): Promise<Map<string, string[]>>
 
   const vizinhanca = await prisma.agendamento.findMany({
     where: { inicio: { gte: inicio, lt: fim }, status: { not: "CANCELADO" } },
-    include: { cliente: { select: { nome: true } } },
+    include: {
+      cliente: { select: { nome: true } },
+      servico: { select: { ocupaMaquiadora: true, ocupaPenteadista: true } },
+    },
   });
 
   const mapa = new Map<string, string[]>();
   for (const a of vizinhanca) {
     const choques = vizinhanca
-      .filter((b) => b.id !== a.id && haSobreposicao(a, b))
+      .filter((b) => b.id !== a.id && haConflito(a, b))
       .map((b) => b.cliente.nome);
     if (choques.length) mapa.set(a.id, choques);
   }

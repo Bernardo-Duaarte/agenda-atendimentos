@@ -91,6 +91,17 @@ model Servico {
   /// atendimento específico.
   percentualSinal Int @default(30)
 
+  /// Quem fica ocupada durante o serviço.
+  ///
+  /// É o que decide conflito de horário: dois atendimentos só brigam se
+  /// disputarem a MESMA pessoa. Você pode maquiar uma cliente enquanto a
+  /// penteadista penteia outra — antes disso o sistema bloqueava, porque
+  /// tratava toda sobreposição como impossível.
+  ///
+  /// Um serviço combinado (make + penteado) marca as duas.
+  ocupaMaquiadora  Boolean @default(true)
+  ocupaPenteadista Boolean @default(false)
+
   /// Preço cobrado FORA do horário comercial (ver Configuracao): de madrugada,
   /// à noite ou em dia que não é de trabalho.
   ///

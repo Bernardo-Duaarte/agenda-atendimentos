@@ -45,7 +45,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
   await exigirSessao();
   const { id } = await props.params;
 
-  const [atendimento, clientes, servicos, agora, regraDePreco] = await Promise.all([
+  const [atendimento, clientes, servicos, agora, regraDePreco, config] = await Promise.all([
     prisma.agendamento.findUnique({
       where: { id },
       include: {
@@ -66,6 +66,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
     }),
     momentoAgora(),
     janelaComDescricao(),
+    prisma.configuracao.findUnique({ where: { id: "unica" } }),
   ]);
 
   if (!atendimento) notFound();
@@ -88,13 +89,16 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
   const total = conta.total;
   const faltaDoSinal = Math.max(0, conta.sinal - conta.sinalRecebido);
 
-  const mensagem = mensagemLembrete({
-    cliente: a.cliente,
-    servico: a.servico,
-    inicio: a.inicio,
-    local: a.local,
-    endereco: a.endereco,
-  });
+  const mensagem = mensagemLembrete(
+    {
+      cliente: a.cliente,
+      servico: a.servico,
+      inicio: a.inicio,
+      local: a.local,
+      endereco: a.endereco,
+    },
+    { enderecoEstudio: config?.enderecoEstudio },
+  );
 
   return (
     <>
