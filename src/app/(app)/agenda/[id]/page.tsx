@@ -45,11 +45,12 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
   await exigirSessao();
   const { id } = await props.params;
 
-  const [atendimento, clientes, servicos, agora, regraDePreco, config] = await Promise.all([
+  const [atendimento, clientes, servicos, agora, regraDePreco, profissionais, config] = await Promise.all([
     prisma.agendamento.findUnique({
       where: { id },
       include: {
         cliente: true,
+        profissional: true,
         servico: { include: { insumos: { include: { produto: true } } } },
         movimentos: { include: { produto: true } },
         pagamentos: { orderBy: { pagoEm: "desc" } },
@@ -63,10 +64,16 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
         percentualSinal: true,
         acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
+        exigeProfissional: true,
       },
     }),
     momentoAgora(),
     janelaComDescricao(),
+    prisma.profissional.findMany({
+      where: { ativo: true },
+      orderBy: { precoCentavos: "asc" },
+      select: { id: true, nome: true, precoCentavos: true, repasseCentavos: true },
+    }),
     prisma.configuracao.findUnique({ where: { id: "unica" } }),
   ]);
 
@@ -124,7 +131,10 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
                 {a.distanciaMetros !== null && ` · ${formatarDistancia(a.distanciaMetros)} por trecho`}
               </p>
             )}
-            <p className="mt-2 text-sm text-texto-suave">{a.servico.nome}</p>
+            <p className="mt-2 text-sm text-texto-suave">
+              {a.servico.nome}
+              {a.profissional && ` · com ${a.profissional.nome}`}
+            </p>
             {foraDoHorario && (
               <p className="mt-0.5 text-sm text-atencao-texto">
                 Fora de {regraDePreco.descricao}
@@ -195,6 +205,21 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
             )}
           </div>
         </div>
+
+        {a.repasseCentavos > 0 && (
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-borda-suave pt-4 text-sm">
+            <span className="text-texto-suave">
+              Repasse a {a.profissional?.nome ?? "profissional"}:{" "}
+              <strong className="text-texto">{formatarReal(a.repasseCentavos)}</strong>
+            </span>
+            <span className="text-texto-suave">
+              Fica com você:{" "}
+              <strong className={conta.recebido - a.repasseCentavos >= 0 ? "text-positivo" : "text-perigo"}>
+                {formatarReal(conta.recebido - a.repasseCentavos)}
+              </strong>
+            </span>
+          </div>
+        )}
 
         {ESTOQUE_ATIVO && (
           <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-borda-suave pt-4 text-sm">
@@ -366,6 +391,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">Editar</h2>
       <FormularioAtendimento
         acao={atualizarAtendimento}
+        profissionais={profissionais}
         janela={regraDePreco.janela}
         descricaoJanela={regraDePreco.descricao}
         clientes={clientes}
@@ -377,6 +403,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           precoCentavos: s.precoCentavos,
           acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
           acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
+          exigeProfissional: s.exigeProfissional,
         }))}
         atendimento={{
           id: a.id,
@@ -392,6 +419,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           precoReais: paraCampoReal(a.precoCentavos),
           sinalReais: paraCampoReal(a.sinalCentavos),
           distanciaMetros: a.distanciaMetros,
+          profissionalId: a.profissionalId,
           observacoes: a.observacoes,
         }}
       />

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import {
+  booleano,
   comValidacao,
   percentual,
   dinheiro,
@@ -15,12 +16,6 @@ import {
   type EstadoFormulario,
 } from "@/lib/formulario";
 
-/** "MAQUIADORA" | "PENTEADISTA" | "AMBAS" — quem o serviço ocupa. */
-function quemFaz(fd: FormData): string {
-  const v = String(fd.get("quemFaz") ?? "MAQUIADORA");
-  return ["MAQUIADORA", "PENTEADISTA", "AMBAS"].includes(v) ? v : "MAQUIADORA";
-}
-
 function dadosDoServico(fd: FormData) {
   return {
     nome: texto(fd, "nome", "Nome"),
@@ -28,9 +23,9 @@ function dadosDoServico(fd: FormData) {
     precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
     duracaoMin: inteiro(fd, "duracaoMin", "Duração", { min: 5 }),
     percentualSinal: percentual(fd, "percentualSinal", "Sinal"),
-    // Decide com o que este serviço conflita na agenda.
-    ocupaMaquiadora: quemFaz(fd) !== "PENTEADISTA",
-    ocupaPenteadista: quemFaz(fd) !== "MAQUIADORA",
+    // Serviço de parceira: o atendimento passa a exigir escolher quem atende,
+    // e o preço vem da tabela dela.
+    exigeProfissional: booleano(fd, "exigeProfissional"),
     acrescimoDomicilioCentavos: dinheiro(fd, "acrescimoDomicilioCentavos", "Acréscimo de domicílio"),
     acrescimoForaHorarioCentavos: dinheiro(fd, "acrescimoForaHorarioCentavos", "Acréscimo fora do horário"),
   };

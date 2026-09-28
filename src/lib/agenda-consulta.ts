@@ -59,10 +59,7 @@ async function conflitosNoDia(dataTexto: string): Promise<Map<string, string[]>>
 
   const vizinhanca = await prisma.agendamento.findMany({
     where: { inicio: { gte: inicio, lt: fim }, status: { not: "CANCELADO" } },
-    include: {
-      cliente: { select: { nome: true } },
-      servico: { select: { ocupaMaquiadora: true, ocupaPenteadista: true } },
-    },
+    include: { cliente: { select: { nome: true } } },
   });
 
   const mapa = new Map<string, string[]>();

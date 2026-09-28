@@ -45,11 +45,7 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
           precoReais: paraCampoReal(servico.precoCentavos),
           duracaoMin: servico.duracaoMin,
           percentualSinal: servico.percentualSinal,
-          quemFaz: servico.ocupaMaquiadora && servico.ocupaPenteadista
-            ? "AMBAS"
-            : servico.ocupaPenteadista
-              ? "PENTEADISTA"
-              : "MAQUIADORA",
+          exigeProfissional: servico.exigeProfissional,
           acrescimoDomicilioReais: paraCampoReal(servico.acrescimoDomicilioCentavos),
           acrescimoForaHorarioReais: paraCampoReal(servico.acrescimoForaHorarioCentavos),
           ficha,

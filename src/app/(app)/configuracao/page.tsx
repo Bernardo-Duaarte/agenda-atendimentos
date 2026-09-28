@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import { salvarConfiguracao } from "./acoes";
 import { FormularioConfiguracao } from "./formulario";
+import { FormularioProfissionais } from "./profissionais";
+import { salvarProfissionais } from "./acoes-profissionais";
 import { Cartao, Titulo } from "@/components/ui";
 import { paraCampoReal } from "@/lib/dinheiro";
 
@@ -21,13 +23,17 @@ export default async function PaginaConfiguracao(props: PageProps<"/configuracao
   await exigirSessao();
   const { salvo } = await props.searchParams;
 
-  const config = (await prisma.configuracao.findUnique({ where: { id: "unica" } })) ?? PADRAO;
+  const [config, parceiras] = await Promise.all([
+    prisma.configuracao.findUnique({ where: { id: "unica" } }),
+    prisma.profissional.findMany({ where: { ativo: true }, orderBy: { precoCentavos: "asc" } }),
+  ]);
+  const atual = config ?? PADRAO;
 
   return (
     <>
       <Titulo>Configuração</Titulo>
 
-      {salvo === "1" && (
+      {(salvo === "1" || salvo === "parceiras") && (
         <Cartao className="mb-6 border-positivo/40 bg-positivo-fundo p-4">
           <p className="text-sm font-medium text-positivo-texto">Configuração salva.</p>
         </Cartao>
@@ -37,17 +43,29 @@ export default async function PaginaConfiguracao(props: PageProps<"/configuracao
         acao={salvarConfiguracao}
         temChaveDoMapa={Boolean(process.env.GOOGLE_MAPS_API_KEY)}
         atual={{
-          nomeProfissional: config.nomeProfissional,
-          telefone: config.telefone,
-          enderecoEstudio: config.enderecoEstudio,
-          horaAbertura: config.horaAbertura,
-          horaFechamento: config.horaFechamento,
-          diasNormais: config.diasNormais,
-          taxaBaseReais: paraCampoReal(config.taxaBaseCentavos),
-          taxaPorKmReais: paraCampoReal(config.taxaPorKmCentavos),
-          taxaPorMinutoReais: paraCampoReal(config.taxaPorMinutoCentavos),
+          nomeProfissional: atual.nomeProfissional,
+          telefone: atual.telefone,
+          enderecoEstudio: atual.enderecoEstudio,
+          horaAbertura: atual.horaAbertura,
+          horaFechamento: atual.horaFechamento,
+          diasNormais: atual.diasNormais,
+          taxaBaseReais: paraCampoReal(atual.taxaBaseCentavos),
+          taxaPorKmReais: paraCampoReal(atual.taxaPorKmCentavos),
+          taxaPorMinutoReais: paraCampoReal(atual.taxaPorMinutoCentavos),
         }}
       />
+
+      <div className="mt-6">
+        <FormularioProfissionais
+          acao={salvarProfissionais}
+          parceiras={parceiras.map((p) => ({
+            id: p.id,
+            nome: p.nome,
+            precoReais: paraCampoReal(p.precoCentavos),
+            repasseReais: paraCampoReal(p.repasseCentavos),
+          }))}
+        />
+      </div>
     </>
   );
 }

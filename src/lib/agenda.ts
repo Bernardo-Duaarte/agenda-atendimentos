@@ -41,17 +41,17 @@ export type JanelaDeAtendimento = {
   deslocamentoVoltaMin: number;
 };
 
-/** Quem o serviço ocupa. Dois atendimentos só brigam se disputarem alguém. */
-export type Ocupacao = {
-  ocupaMaquiadora: boolean;
-  ocupaPenteadista: boolean;
-};
+/**
+ * Quem vai executar o atendimento. Nulo é você.
+ *
+ * O conflito é entre atendimentos da MESMA pessoa: você maquiando uma cliente
+ * e a Giselle penteando outra acontecem ao mesmo tempo. Duas clientes com a
+ * Giselle no mesmo horário, não.
+ */
+export type Executora = { profissionalId: string | null };
 
-export function disputamAMesmaPessoa(a: Ocupacao, b: Ocupacao): boolean {
-  return (
-    (a.ocupaMaquiadora && b.ocupaMaquiadora) ||
-    (a.ocupaPenteadista && b.ocupaPenteadista)
-  );
+export function mesmaExecutora(a: Executora, b: Executora): boolean {
+  return a.profissionalId === b.profissionalId;
 }
 
 /** Duas janelas se sobrepõem quando uma começa antes da outra terminar. */
@@ -65,15 +65,14 @@ export function haSobreposicao(a: JanelaDeAtendimento, b: JanelaDeAtendimento): 
 /**
  * Conflito de verdade: os horários se cruzam E a mesma pessoa é necessária.
  *
- * Sobreposição sozinha não basta. Uma maquiagem às 14h e um penteado às 14h
- * acontecem ao mesmo tempo sem problema nenhum — quem faz cada um é outra
- * pessoa. O que não pode é duas maquiagens juntas.
+ * Sobreposição sozinha não basta. Antes disso o sistema bloqueava qualquer
+ * cruzamento, o que impedia agendamentos que acontecem normalmente.
  */
 export function haConflito(
-  a: JanelaDeAtendimento & { servico: Ocupacao },
-  b: JanelaDeAtendimento & { servico: Ocupacao },
+  a: JanelaDeAtendimento & Executora,
+  b: JanelaDeAtendimento & Executora,
 ): boolean {
-  return haSobreposicao(a, b) && disputamAMesmaPessoa(a.servico, b.servico);
+  return haSobreposicao(a, b) && mesmaExecutora(a, b);
 }
 
 /**

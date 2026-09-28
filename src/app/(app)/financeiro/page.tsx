@@ -62,7 +62,7 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
         </Link>
       </nav>
 
-      <div className={`mb-6 grid gap-4 ${ESTOQUE_ATIVO ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+      <div className="mb-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <Cartao className="p-5">
           <p className="text-sm font-medium text-texto-suave">Entrou no mês</p>
           <p className="mt-1 text-2xl font-semibold text-positivo">{formatarReal(r.recebidoNoMes)}</p>
@@ -83,6 +83,22 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
               <p className="text-xs text-texto-fraco">entrou menos produtos</p>
             </Cartao>
           </>
+        )}
+        {r.repasses > 0 && (
+          <Cartao className="p-5">
+            <p className="text-sm font-medium text-texto-suave">Repasses</p>
+            <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.repasses)}</p>
+            <p className="text-xs text-texto-fraco">às parceiras</p>
+          </Cartao>
+        )}
+        {r.repasses > 0 && (
+          <Cartao className="p-5">
+            <p className="text-sm font-medium text-texto-suave">Ficou com você</p>
+            <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
+              {formatarReal(r.sobra)}
+            </p>
+            <p className="text-xs text-texto-fraco">entrou menos repasses</p>
+          </Cartao>
         )}
         <Cartao className="p-5">
           <p className="text-sm font-medium text-texto-suave">Total do mês</p>

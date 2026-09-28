@@ -12,7 +12,7 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
   const { d } = await props.searchParams;
   const dia = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : hojeEmSaoPaulo();
 
-  const [clientes, servicos, { janela, descricao }] = await Promise.all([
+  const [clientes, servicos, { janela, descricao }, profissionais] = await Promise.all([
     prisma.cliente.findMany({
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, enderecoPadrao: true },
@@ -24,9 +24,15 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
         percentualSinal: true,
         acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
+        exigeProfissional: true,
       },
     }),
     janelaComDescricao(),
+    prisma.profissional.findMany({
+      where: { ativo: true },
+      orderBy: { precoCentavos: "asc" },
+      select: { id: true, nome: true, precoCentavos: true, repasseCentavos: true },
+    }),
   ]);
 
   return (
@@ -43,10 +49,12 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
           precoCentavos: s.precoCentavos,
           acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
           acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
+          exigeProfissional: s.exigeProfissional,
         }))}
         // Só para o campo de data já vir preenchido com o dia que estava sendo
         // olhado na agenda; o resto do formulário nasce em branco.
         dataInicial={dia}
+        profissionais={profissionais}
         janela={janela}
         descricaoJanela={descricao}
       />

@@ -33,6 +33,20 @@ async function lerAtendimento(fd: FormData) {
     throw new ErroDeCampo("endereco", "Atendimento em domicílio precisa de endereço.");
   }
 
+  // Serviço de parceira exige escolher quem vai atender: sem isso o sistema
+  // não sabe de quem é a agenda nem de quanto é o repasse.
+  const profissionalId = textoOpcional(fd, "profissionalId");
+  if (servico.exigeProfissional && !profissionalId) {
+    throw new ErroDeCampo("profissionalId", "Escolha qual profissional vai atender.");
+  }
+
+  const profissional = profissionalId
+    ? await prisma.profissional.findUnique({ where: { id: profissionalId } })
+    : null;
+  if (profissionalId && !profissional) {
+    throw new ErroDeCampo("profissionalId", "Profissional não encontrada.");
+  }
+
   const precoCentavos = dinheiro(fd, "precoCentavos", "Preço");
 
   // O sinal nasce do percentual do serviço, mas o formulário pode trazer um
@@ -49,14 +63,12 @@ async function lerAtendimento(fd: FormData) {
   }
 
   return {
-    // Só para a verificação de conflito saber quem o serviço ocupa; não é
-    // gravado no atendimento (ver `dadosParaGravar`).
-    ocupacao: {
-      ocupaMaquiadora: servico.ocupaMaquiadora,
-      ocupaPenteadista: servico.ocupaPenteadista,
-    },
     clienteId: texto(fd, "clienteId", "Cliente"),
     servicoId,
+    profissionalId: profissional?.id ?? null,
+    // Congelado como o preço: reajustar a tabela dela amanhã não reescreve o
+    // que foi combinado ontem.
+    repasseCentavos: profissional?.repasseCentavos ?? 0,
     inicio,
     fim: new Date(inicio.getTime() + servico.duracaoMin * 60_000),
     local,
@@ -87,7 +99,7 @@ async function garantirHorarioLivre(
     fim: Date;
     deslocamentoIdaMin: number;
     deslocamentoVoltaMin: number;
-    servico: { ocupaMaquiadora: boolean; ocupaPenteadista: boolean };
+    profissionalId: string | null;
   },
   ignorarId?: string,
 ) {
@@ -99,10 +111,7 @@ async function garantirHorarioLivre(
       status: { not: "CANCELADO" },
       inicio: { gte: busca.de, lte: busca.ate },
     },
-    include: {
-      cliente: { select: { nome: true } },
-      servico: { select: { ocupaMaquiadora: true, ocupaPenteadista: true } },
-    },
+    include: { cliente: { select: { nome: true } } },
   });
 
   // Só barra o que bloqueia de verdade. Um pré-agendamento sobreposto passa e
@@ -127,11 +136,9 @@ export async function criarAtendimento(
     const escolhido = String(fd.get("status") ?? "");
     const status = escolhido === "PENDENTE" ? "PENDENTE" : "PRE_AGENDAMENTO";
 
-    const { ocupacao, ...paraGravar } = dados;
-
     await prisma.$transaction(async (tx) => {
-      await garantirHorarioLivre(tx, { ...paraGravar, servico: ocupacao });
-      await tx.agendamento.create({ data: { ...paraGravar, status } });
+      await garantirHorarioLivre(tx, dados);
+      await tx.agendamento.create({ data: { ...dados, status } });
     });
 
     revalidatePath("/agenda");
@@ -149,11 +156,9 @@ export async function atualizarAtendimento(
     const id = texto(fd, "id", "Atendimento");
     const dados = await lerAtendimento(fd);
 
-    const { ocupacao, ...paraGravar } = dados;
-
     await prisma.$transaction(async (tx) => {
-      await garantirHorarioLivre(tx, { ...paraGravar, servico: ocupacao }, id);
-      await tx.agendamento.update({ where: { id }, data: paraGravar });
+      await garantirHorarioLivre(tx, dados, id);
+      await tx.agendamento.update({ where: { id }, data: dados });
     });
 
     revalidatePath("/agenda");

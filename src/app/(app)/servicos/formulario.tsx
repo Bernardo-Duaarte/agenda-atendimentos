@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
+import { AreaTexto, Aviso, Campo, Cartao, Entrada } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
@@ -23,7 +23,7 @@ export type ServicoEmEdicao = {
   percentualSinal: number;
   acrescimoDomicilioReais: string;
   acrescimoForaHorarioReais: string;
-  quemFaz: "MAQUIADORA" | "PENTEADISTA" | "AMBAS";
+  exigeProfissional: boolean;
   /** produtoId -> quantidade já cadastrada, como texto de campo */
   ficha: Record<string, string>;
 };
@@ -57,17 +57,24 @@ export function FormularioServico({
           <AreaTexto name="descricao" defaultValue={servico?.descricao ?? ""} placeholder="Pele, olhos e boca. Inclui cílios postiços." />
         </Campo>
 
-        <Campo
-          rotulo="Quem fica ocupada"
-          erro={erro("quemFaz")}
-          dica="Define com o que este serviço conflita. Você pode maquiar uma cliente enquanto a penteadista atende outra — o sistema só bloqueia quando a mesma pessoa é necessária nos dois."
-        >
-          <Selecao name="quemFaz" defaultValue={servico?.quemFaz ?? "MAQUIADORA"}>
-            <option value="MAQUIADORA">Você — maquiagem</option>
-            <option value="PENTEADISTA">Penteadista — cabelo</option>
-            <option value="AMBAS">As duas — serviço combinado</option>
-          </Selecao>
-        </Campo>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-borda p-4 transition hover:bg-superficie-suave">
+          <input
+            type="checkbox"
+            name="exigeProfissional"
+            defaultChecked={servico?.exigeProfissional ?? false}
+            className="mt-0.5 accent-acao"
+          />
+          <span>
+            <span className="block text-sm font-medium text-texto">
+              Quem faz é uma parceira, não eu
+            </span>
+            <span className="mt-0.5 block text-sm text-texto-fraco">
+              O atendimento passa a exigir escolher qual profissional, e o preço vem da tabela
+              dela. Como a agenda ocupada é a dela, você pode atender outra cliente no mesmo
+              horário.
+            </span>
+          </span>
+        </label>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Campo

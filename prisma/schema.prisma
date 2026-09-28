@@ -91,16 +91,11 @@ model Servico {
   /// atendimento específico.
   percentualSinal Int @default(30)
 
-  /// Quem fica ocupada durante o serviço.
+  /// Este serviço é feito por uma parceira, e não por você?
   ///
-  /// É o que decide conflito de horário: dois atendimentos só brigam se
-  /// disputarem a MESMA pessoa. Você pode maquiar uma cliente enquanto a
-  /// penteadista penteia outra — antes disso o sistema bloqueava, porque
-  /// tratava toda sobreposição como impossível.
-  ///
-  /// Um serviço combinado (make + penteado) marca as duas.
-  ocupaMaquiadora  Boolean @default(true)
-  ocupaPenteadista Boolean @default(false)
+  /// Quando sim, o atendimento exige escolher a profissional e o preço vem da
+  /// tabela dela — cada penteadista cobra o seu. Quando não, quem faz é você.
+  exigeProfissional Boolean @default(false)
 
   /// Acréscimos sobre o preço base, em centavos.
   ///
@@ -193,6 +188,19 @@ model Agendamento {
   /// reescrever o que já foi combinado ontem.
   sinalCentavos Int @default(0)
 
+  /// Quem vai atender. Nulo significa você.
+  ///
+  /// É o que decide conflito de horário: dois atendimentos só brigam quando
+  /// exigem a MESMA pessoa. Você maquiando uma cliente e a Giselle penteando
+  /// outra acontecem ao mesmo tempo sem problema — e duas clientes com a
+  /// Giselle no mesmo horário, não.
+  profissionalId String?
+
+  /// Quanto será repassado à profissional, congelado no agendamento pelo mesmo
+  /// motivo do preço: reajustar a tabela dela amanhã não pode reescrever o
+  /// que foi combinado ontem.
+  repasseCentavos Int @default(0)
+
   /// Distância de UM trecho, guardada junto com o atendimento.
   ///
   /// Existe para o valor cobrado ter explicação meses depois — "essa taxa veio
@@ -207,8 +215,9 @@ model Agendamento {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  cliente    Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  servico    Servico            @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+  cliente      Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  servico      Servico       @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
   movimentos MovimentoEstoque[]
   pagamentos Pagamento[]
 
@@ -219,6 +228,30 @@ model Agendamento {
   // ao listar o histórico de uma cliente.
   @@index([clienteId])
   @@index([servicoId])
+  @@index([profissionalId])
+}
+
+/// Penteadistas parceiras: fazem o atendimento no lugar dela, com preço próprio.
+///
+/// A cliente paga a ela, que repassa à profissional. Por isso existem os dois
+/// valores: o que entra e o que sai.
+model Profissional {
+  id    String  @id @default(cuid())
+  nome  String
+  ativo Boolean @default(true)
+
+  /// O que a cliente paga por um atendimento com esta profissional.
+  precoCentavos Int
+
+  /// O que é repassado a ela. Igual ao preço quando não há margem.
+  repasseCentavos Int
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  agendamentos Agendamento[]
+
+  @@index([nome])
 }
 
 /// Livro-razão do estoque. Só se escreve aqui, nunca se edita saldo direto.

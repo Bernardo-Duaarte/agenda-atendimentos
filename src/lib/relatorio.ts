@@ -84,6 +84,13 @@ export async function relatorioDoMes(mes: string) {
   // ocorreu não é despesa, é previsão.
   const custoProdutos = concluidos.reduce((t, c) => t + c.conta.custoProdutos, 0);
 
+  // Repasse às parceiras: dinheiro que entra e sai. Conta a partir do que foi
+  // recebido, não do combinado — repassar o que ainda não entrou seria mentira.
+  const repasses = valem.reduce(
+    (t, c) => (c.conta.recebido > 0 ? t + c.atendimento.repasseCentavos : t),
+    0,
+  );
+
   const porServico = new Map<string, { nome: string; quantos: number; total: number }>();
   for (const c of valem) {
     const s = c.atendimento.servico;
@@ -107,8 +114,9 @@ export async function relatorioDoMes(mes: string) {
     combinado: valem.reduce((t, c) => t + c.conta.total, 0),
     aReceber: valem.reduce((t, c) => t + c.conta.aReceber, 0),
     custoProdutos,
-    /** O que sobrou do dinheiro que entrou, depois dos produtos usados. */
-    sobra: recebidoNoMes - custoProdutos,
+    repasses,
+    /** O que sobrou do que entrou, depois de produtos e repasses. */
+    sobra: recebidoNoMes - custoProdutos - repasses,
 
     porServico: [...porServico.values()].sort((a, b) => b.total - a.total),
   };

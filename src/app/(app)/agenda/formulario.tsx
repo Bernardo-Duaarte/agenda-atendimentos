@@ -11,6 +11,12 @@ import { paraCampoReal, paraCentavos } from "@/lib/dinheiro";
 import { paraUtc } from "@/lib/tempo";
 
 export type ClienteOpcao = { id: string; nome: string; enderecoPadrao: string | null };
+export type ProfissionalOpcao = {
+  id: string;
+  nome: string;
+  precoCentavos: number;
+  repasseCentavos: number;
+};
 export type ServicoOpcao = {
   id: string;
   nome: string;
@@ -20,6 +26,7 @@ export type ServicoOpcao = {
   precoCentavos: number;
   acrescimoDomicilioCentavos: number;
   acrescimoForaHorarioCentavos: number;
+  exigeProfissional: boolean;
 };
 
 export type AtendimentoEmEdicao = {
@@ -36,6 +43,7 @@ export type AtendimentoEmEdicao = {
   precoReais: string;
   sinalReais: string;
   distanciaMetros: number | null;
+  profissionalId: string | null;
   observacoes: string | null;
 };
 
@@ -43,6 +51,7 @@ export function FormularioAtendimento({
   acao,
   clientes,
   servicos,
+  profissionais,
   atendimento,
   dataInicial,
   janela,
@@ -51,6 +60,7 @@ export function FormularioAtendimento({
   acao: (estado: EstadoFormulario, fd: FormData) => Promise<EstadoFormulario>;
   clientes: ClienteOpcao[];
   servicos: ServicoOpcao[];
+  profissionais: ProfissionalOpcao[];
   atendimento?: AtendimentoEmEdicao;
   /** Deixa o campo de data já preenchido ao marcar a partir de um dia da agenda. */
   dataInicial?: string;
@@ -62,6 +72,7 @@ export function FormularioAtendimento({
   const erro = (campo: string) => estado.erros?.[campo];
 
   const [clienteId, setClienteId] = useState(atendimento?.clienteId ?? "");
+  const [profissionalId, setProfissionalId] = useState(atendimento?.profissionalId ?? "");
   const [servicoId, setServicoId] = useState(atendimento?.servicoId ?? servicos[0]?.id ?? "");
   const [local, setLocal] = useState<"ESTUDIO" | "DOMICILIO">(atendimento?.local ?? "ESTUDIO");
   const [data, setData] = useState(atendimento?.data ?? dataInicial ?? "");
@@ -87,11 +98,17 @@ export function FormularioAtendimento({
     dia: string,
     hh: string,
     ondeE: "ESTUDIO" | "DOMICILIO",
+    profId: string = profissionalId,
   ) {
-    const vazio = { centavos: s?.precoCentavos ?? 0, fora: false, domicilio: 0, horario: 0 };
+    // Serviço de parceira: a base é a tabela dela, com os acréscimos por cima.
+    const base = s?.exigeProfissional
+      ? (profissionais.find((x) => x.id === profId)?.precoCentavos ?? s.precoCentavos)
+      : (s?.precoCentavos ?? 0);
+
+    const vazio = { centavos: base, fora: false, domicilio: 0, horario: 0 };
     if (!s || !dia || !hh) return vazio;
     try {
-      const r = precoParaOHorario(s, paraUtc(dia, hh), janela, ondeE);
+      const r = precoParaOHorario({ ...s, precoCentavos: base }, paraUtc(dia, hh), janela, ondeE);
       return {
         centavos: r.centavos,
         fora: r.foraDoHorario,
@@ -132,7 +149,17 @@ export function FormularioAtendimento({
     hh: string,
     ondeE: "ESTUDIO" | "DOMICILIO",
   ) {
-    const r = precoDoMomento(s, dia, hh, ondeE);
+    reprecificarCom(s, dia, hh, ondeE, profissionalId);
+  }
+
+  function reprecificarCom(
+    s: ServicoOpcao | undefined,
+    dia: string,
+    hh: string,
+    ondeE: "ESTUDIO" | "DOMICILIO",
+    profId: string,
+  ) {
+    const r = precoDoMomento(s, dia, hh, ondeE, profId);
     setAcrescimos({ fora: r.fora, domicilio: r.domicilio, horario: r.horario });
     setPreco(paraCampoReal(r.centavos));
     setSinal(paraCampoReal(Math.round((r.centavos * (s?.percentualSinal ?? 30)) / 100)));
@@ -161,6 +188,12 @@ export function FormularioAtendimento({
     if (novo === "DOMICILIO" && !endereco && cliente?.enderecoPadrao) {
       setEndereco(cliente.enderecoPadrao);
     }
+  }
+
+  function escolherProfissional(id: string) {
+    setProfissionalId(id);
+    // Cada parceira cobra o seu: trocar quem atende muda o preço.
+    reprecificarCom(servico, data, horaInicio, local, id);
   }
 
   function escolherCliente(id: string) {
@@ -255,6 +288,28 @@ export function FormularioAtendimento({
             ))}
           </Selecao>
         </Campo>
+
+        {servico?.exigeProfissional && (
+          <Campo
+            rotulo="Quem vai atender"
+            erro={erro("profissionalId")}
+            dica="Cada parceira tem o próprio preço. A agenda ocupada é a dela — você fica livre no mesmo horário."
+          >
+            <Selecao
+              name="profissionalId"
+              value={profissionalId}
+              onChange={(e) => escolherProfissional(e.target.value)}
+              erro={!!erro("profissionalId")}
+            >
+              <option value="">Escolha…</option>
+              {profissionais.map((pr) => (
+                <option key={pr.id} value={pr.id}>
+                  {pr.nome} — {paraCampoReal(pr.precoCentavos)}
+                </option>
+              ))}
+            </Selecao>
+          </Campo>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Campo rotulo="Data" erro={erro("data")}>
