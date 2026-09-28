@@ -65,6 +65,10 @@ export default async function PaginaServicos() {
                   <p className="mt-0.5 text-sm text-texto-fraco">
                     Sinal de {s.percentualSinal}% ={" "}
                     {formatarReal(calcularSinal(s.precoCentavos, s.percentualSinal))}
+                    {s.acrescimoDomicilioCentavos > 0 &&
+                      ` · domicílio ${formatarReal(s.precoCentavos + s.acrescimoDomicilioCentavos)}`}
+                    {s.acrescimoForaHorarioCentavos > 0 &&
+                      ` · fora do horário ${formatarReal(s.precoCentavos + s.acrescimoForaHorarioCentavos)}`}
                   </p>
                 </div>
 

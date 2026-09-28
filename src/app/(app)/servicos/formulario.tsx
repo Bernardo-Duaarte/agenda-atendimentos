@@ -21,7 +21,8 @@ export type ServicoEmEdicao = {
   precoReais: string;
   duracaoMin: number;
   percentualSinal: number;
-  precoForaHorarioReais: string;
+  acrescimoDomicilioReais: string;
+  acrescimoForaHorarioReais: string;
   quemFaz: "MAQUIADORA" | "PENTEADISTA" | "AMBAS";
   /** produtoId -> quantidade já cadastrada, como texto de campo */
   ficha: Record<string, string>;
@@ -68,19 +69,39 @@ export function FormularioServico({
           </Selecao>
         </Campo>
 
-        <Campo
-          rotulo="Preço fora do horário de trabalho"
-          erro={erro("precoForaHorarioCentavos")}
-          dica={`Cobrado quando o atendimento começa fora de ${descricaoJanela}. Deixe vazio se o preço for o mesmo sempre.`}
-        >
-          <Entrada
-            name="precoForaHorarioCentavos"
-            defaultValue={servico?.precoForaHorarioReais ?? ""}
-            erro={!!erro("precoForaHorarioCentavos")}
-            inputMode="decimal"
-            placeholder="deixe vazio para não cobrar diferente"
-          />
-        </Campo>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Campo
+            rotulo="Acréscimo em domicílio"
+            erro={erro("acrescimoDomicilioCentavos")}
+            dica="Somado ao preço quando o atendimento é fora do estúdio. A corrida do Uber é cobrada à parte."
+          >
+            <Entrada
+              name="acrescimoDomicilioCentavos"
+              defaultValue={servico?.acrescimoDomicilioReais ?? "0"}
+              erro={!!erro("acrescimoDomicilioCentavos")}
+              inputMode="decimal"
+              placeholder="0,00"
+            />
+          </Campo>
+
+          <Campo
+            rotulo="Acréscimo fora do horário"
+            erro={erro("acrescimoForaHorarioCentavos")}
+            dica={`Somado quando o atendimento começa fora de ${descricaoJanela}.`}
+          >
+            <Entrada
+              name="acrescimoForaHorarioCentavos"
+              defaultValue={servico?.acrescimoForaHorarioReais ?? "0"}
+              erro={!!erro("acrescimoForaHorarioCentavos")}
+              inputMode="decimal"
+              placeholder="0,00"
+            />
+          </Campo>
+        </div>
+
+        <p className="text-sm text-texto-fraco">
+          Os dois somam: um domicílio fora do horário paga os dois acréscimos.
+        </p>
 
         <div className="grid gap-5 sm:grid-cols-3">
           <Campo rotulo="Preço" erro={erro("precoCentavos")}>

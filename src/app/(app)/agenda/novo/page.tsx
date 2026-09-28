@@ -22,7 +22,8 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
       orderBy: { nome: "asc" },
       select: {
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
-        percentualSinal: true, precoForaHorarioCentavos: true,
+        percentualSinal: true,
+        acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
       },
     }),
     janelaComDescricao(),
@@ -40,7 +41,8 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
           duracaoMin: s.duracaoMin,
           percentualSinal: s.percentualSinal,
           precoCentavos: s.precoCentavos,
-          precoForaHorarioCentavos: s.precoForaHorarioCentavos,
+          acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
+          acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
         }))}
         // Só para o campo de data já vir preenchido com o dia que estava sendo
         // olhado na agenda; o resto do formulário nasce em branco.

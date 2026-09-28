@@ -57,24 +57,41 @@ export function dentroDaJanela(inicio: Date, janela: JanelaNormal): boolean {
 
 export type PrecoAplicado = {
   centavos: number;
+  /** Quanto veio de cada acréscimo, para a tela explicar o valor. */
+  acrescimoDomicilio: number;
+  acrescimoForaHorario: number;
   foraDoHorario: boolean;
-  /** Existe preço diferenciado cadastrado para este serviço? */
-  temPrecoDiferenciado: boolean;
 };
 
+export type PrecoDoServico = {
+  precoCentavos: number;
+  acrescimoDomicilioCentavos: number;
+  acrescimoForaHorarioCentavos: number;
+};
+
+/**
+ * Preço final: base mais os acréscimos que se aplicam.
+ *
+ * Os dois SOMAM. Um domicílio num domingo paga as duas coisas — é uma
+ * condição em cima da outra, não uma escolha entre elas.
+ */
 export function precoParaOHorario(
-  servico: { precoCentavos: number; precoForaHorarioCentavos: number | null },
+  servico: PrecoDoServico,
   inicio: Date,
   janela: JanelaNormal,
+  local: "ESTUDIO" | "DOMICILIO" = "ESTUDIO",
 ): PrecoAplicado {
-  const dentro = dentroDaJanela(inicio, janela);
-  const temDiferenciado = servico.precoForaHorarioCentavos != null;
+  const fora = !dentroDaJanela(inicio, janela);
+
+  const acrescimoDomicilio =
+    local === "DOMICILIO" ? servico.acrescimoDomicilioCentavos : 0;
+  const acrescimoForaHorario = fora ? servico.acrescimoForaHorarioCentavos : 0;
 
   return {
-    centavos:
-      !dentro && temDiferenciado ? servico.precoForaHorarioCentavos! : servico.precoCentavos,
-    foraDoHorario: !dentro,
-    temPrecoDiferenciado: temDiferenciado,
+    centavos: servico.precoCentavos + acrescimoDomicilio + acrescimoForaHorario,
+    acrescimoDomicilio,
+    acrescimoForaHorario,
+    foraDoHorario: fora,
   };
 }
 

@@ -61,7 +61,8 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
       orderBy: { nome: "asc" },
       select: {
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
-        percentualSinal: true, precoForaHorarioCentavos: true,
+        percentualSinal: true,
+        acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
       },
     }),
     momentoAgora(),
@@ -374,7 +375,8 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           duracaoMin: s.duracaoMin,
           percentualSinal: s.percentualSinal,
           precoCentavos: s.precoCentavos,
-          precoForaHorarioCentavos: s.precoForaHorarioCentavos,
+          acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
+          acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
         }))}
         atendimento={{
           id: a.id,

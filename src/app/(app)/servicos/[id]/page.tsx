@@ -50,10 +50,8 @@ export default async function EditarServico(props: PageProps<"/servicos/[id]">) 
             : servico.ocupaPenteadista
               ? "PENTEADISTA"
               : "MAQUIADORA",
-          precoForaHorarioReais:
-            servico.precoForaHorarioCentavos === null
-              ? ""
-              : paraCampoReal(servico.precoForaHorarioCentavos),
+          acrescimoDomicilioReais: paraCampoReal(servico.acrescimoDomicilioCentavos),
+          acrescimoForaHorarioReais: paraCampoReal(servico.acrescimoForaHorarioCentavos),
           ficha,
         }}
       />

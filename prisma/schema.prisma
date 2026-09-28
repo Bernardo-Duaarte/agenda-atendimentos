@@ -102,13 +102,16 @@ model Servico {
   ocupaMaquiadora  Boolean @default(true)
   ocupaPenteadista Boolean @default(false)
 
-  /// Preço cobrado FORA do horário comercial (ver Configuracao): de madrugada,
-  /// à noite ou em dia que não é de trabalho.
+  /// Acréscimos sobre o preço base, em centavos.
   ///
-  /// Nulo significa "mesmo preço sempre" — é o que vale para um serviço que
-  /// não tem acréscimo. Valor absoluto, e não percentual, porque é assim que
-  /// o preço é combinado com a cliente: "nesse horário fica 210".
-  precoForaHorarioCentavos Int?
+  /// São ACRÉSCIMOS e não preços alternativos porque as duas condições se
+  /// somam: um domicílio num domingo paga as duas. Com preços alternativos
+  /// seria preciso cadastrar uma tabela de quatro valores por serviço, e ela
+  /// sairia de sincronia no primeiro reajuste.
+  ///
+  /// Zero significa "não cobro diferente nessa condição".
+  acrescimoDomicilioCentavos  Int @default(0)
+  acrescimoForaHorarioCentavos Int @default(0)
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

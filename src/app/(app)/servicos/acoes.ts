@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import {
   comValidacao,
-  dinheiroOpcional,
   percentual,
   dinheiro,
   inteiro,
@@ -32,8 +31,8 @@ function dadosDoServico(fd: FormData) {
     // Decide com o que este serviço conflita na agenda.
     ocupaMaquiadora: quemFaz(fd) !== "PENTEADISTA",
     ocupaPenteadista: quemFaz(fd) !== "MAQUIADORA",
-    // Vazio significa "mesmo preço sempre" — não zero, que seria de graça.
-    precoForaHorarioCentavos: dinheiroOpcional(fd, "precoForaHorarioCentavos", "Preço fora do horário"),
+    acrescimoDomicilioCentavos: dinheiro(fd, "acrescimoDomicilioCentavos", "Acréscimo de domicílio"),
+    acrescimoForaHorarioCentavos: dinheiro(fd, "acrescimoForaHorarioCentavos", "Acréscimo fora do horário"),
   };
 }
 

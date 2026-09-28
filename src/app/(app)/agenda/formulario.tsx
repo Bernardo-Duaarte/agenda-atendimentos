@@ -16,9 +16,10 @@ export type ServicoOpcao = {
   nome: string;
   duracaoMin: number;
   percentualSinal: number;
-  /** Em centavos, para a regra de horário decidir qual vale. */
+  /** Em centavos: base e os acréscimos que podem somar. */
   precoCentavos: number;
-  precoForaHorarioCentavos: number | null;
+  acrescimoDomicilioCentavos: number;
+  acrescimoForaHorarioCentavos: number;
 };
 
 export type AtendimentoEmEdicao = {
@@ -81,17 +82,25 @@ export function FormularioAtendimento({
    * A mesma função roda no servidor ao salvar; aqui ela só antecipa o
    * resultado, para o valor mudar na tela assim que você escolhe o dia.
    */
-  function precoDoMomento(s: ServicoOpcao | undefined, dia: string, hh: string) {
-    if (!s) return { centavos: 0, fora: false, temDiferenciado: false };
-    if (!dia || !hh) {
-      return { centavos: s.precoCentavos, fora: false, temDiferenciado: s.precoForaHorarioCentavos != null };
-    }
+  function precoDoMomento(
+    s: ServicoOpcao | undefined,
+    dia: string,
+    hh: string,
+    ondeE: "ESTUDIO" | "DOMICILIO",
+  ) {
+    const vazio = { centavos: s?.precoCentavos ?? 0, fora: false, domicilio: 0, horario: 0 };
+    if (!s || !dia || !hh) return vazio;
     try {
-      const r = precoParaOHorario(s, paraUtc(dia, hh), janela);
-      return { centavos: r.centavos, fora: r.foraDoHorario, temDiferenciado: r.temPrecoDiferenciado };
+      const r = precoParaOHorario(s, paraUtc(dia, hh), janela, ondeE);
+      return {
+        centavos: r.centavos,
+        fora: r.foraDoHorario,
+        domicilio: r.acrescimoDomicilio,
+        horario: r.acrescimoForaHorario,
+      };
     } catch {
-      // Data ou hora pela metade enquanto se digita: mantém o preço normal.
-      return { centavos: s.precoCentavos, fora: false, temDiferenciado: s.precoForaHorarioCentavos != null };
+      // Data ou hora pela metade enquanto se digita: mantém o preço base.
+      return vazio;
     }
   }
 
@@ -99,6 +108,7 @@ export function FormularioAtendimento({
     atendimento ? servicos.find((x) => x.id === atendimento.servicoId) : servicoInicial,
     atendimento?.data ?? dataInicial ?? "",
     atendimento?.hora ?? "",
+    atendimento?.local ?? "ESTUDIO",
   );
 
   const [preco, setPreco] = useState(atendimento?.precoReais ?? paraCampoReal(inicial.centavos));
@@ -106,37 +116,48 @@ export function FormularioAtendimento({
     atendimento?.sinalReais ??
       paraCampoReal(Math.round((inicial.centavos * (servicoInicial?.percentualSinal ?? 30)) / 100)),
   );
-  const [horarioFora, setHorarioFora] = useState(inicial.fora);
+  const [acrescimos, setAcrescimos] = useState({
+    fora: inicial.fora,
+    domicilio: inicial.domicilio,
+    horario: inicial.horario,
+  });
 
   const servico = servicos.find((s) => s.id === servicoId);
   const cliente = clientes.find((c) => c.id === clienteId);
 
-  /** Reaplica preço e sinal quando serviço, dia ou hora mudam. */
-  function reprecificar(s: ServicoOpcao | undefined, dia: string, hh: string) {
-    const r = precoDoMomento(s, dia, hh);
-    setHorarioFora(r.fora);
+  /** Reaplica preço e sinal quando serviço, dia, hora ou local mudam. */
+  function reprecificar(
+    s: ServicoOpcao | undefined,
+    dia: string,
+    hh: string,
+    ondeE: "ESTUDIO" | "DOMICILIO",
+  ) {
+    const r = precoDoMomento(s, dia, hh, ondeE);
+    setAcrescimos({ fora: r.fora, domicilio: r.domicilio, horario: r.horario });
     setPreco(paraCampoReal(r.centavos));
     setSinal(paraCampoReal(Math.round((r.centavos * (s?.percentualSinal ?? 30)) / 100)));
   }
 
   function escolherServico(id: string) {
     setServicoId(id);
-    reprecificar(servicos.find((x) => x.id === id), data, horaInicio);
+    reprecificar(servicos.find((x) => x.id === id), data, horaInicio, local);
   }
 
   function escolherData(novo: string) {
     setData(novo);
-    reprecificar(servico, novo, horaInicio);
+    reprecificar(servico, novo, horaInicio, local);
   }
 
   function escolherHora(novo: string) {
     setHoraInicio(novo);
-    reprecificar(servico, data, novo);
+    reprecificar(servico, data, novo, local);
   }
 
   /** Ao ir para domicílio, sugere o endereço que a cliente já tem cadastrado. */
   function escolherLocal(novo: "ESTUDIO" | "DOMICILIO") {
     setLocal(novo);
+    // Domicílio tem acréscimo próprio: trocar o local muda o preço.
+    reprecificar(servico, data, horaInicio, novo);
     if (novo === "DOMICILIO" && !endereco && cliente?.enderecoPadrao) {
       setEndereco(cliente.enderecoPadrao);
     }
@@ -369,8 +390,14 @@ export function FormularioAtendimento({
             rotulo="Preço do atendimento"
             erro={erro("precoCentavos")}
             dica={
-              horarioFora && servico?.precoForaHorarioCentavos != null
-                ? `Fora de ${descricaoJanela} — preço diferenciado aplicado.`
+              acrescimos.domicilio > 0 || acrescimos.horario > 0
+                ? [
+                    acrescimos.domicilio > 0 && `+${paraCampoReal(acrescimos.domicilio)} de domicílio`,
+                    acrescimos.horario > 0 &&
+                      `+${paraCampoReal(acrescimos.horario)} por ser fora de ${descricaoJanela}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" e ")
                 : "Vem da tabela do serviço. Fica congelado neste atendimento."
             }
           >
