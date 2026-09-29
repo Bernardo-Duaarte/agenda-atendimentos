@@ -2,6 +2,7 @@ import Link from "next/link";
 import { exigirSessao } from "@/lib/sessao";
 import { sair } from "@/app/entrar/acoes";
 import { BotaoTema } from "@/components/botao-tema";
+import { AtualizarSozinho } from "@/components/atualizar-sozinho";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 const abas = [
@@ -26,6 +27,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
 
   return (
     <>
+      <AtualizarSozinho />
       <header className="border-b border-borda bg-superficie">
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
           <Link href="/" className="text-base font-semibold tracking-tight text-marca">
