@@ -1,4 +1,5 @@
 import { paraCentavos } from "./dinheiro";
+import { normalizarTelefone } from "./telefone";
 
 /**
  * Estado que toda Server Action de formulário devolve. O `useActionState` do
@@ -47,16 +48,21 @@ export function booleano(fd: FormData, campo: string): boolean {
 /**
  * Telefone brasileiro -> E.164 sem o '+'. Aceita o que a pessoa digitar
  * ((11) 99999-9999, 11999999999, +55 11 99999-9999) e normaliza.
+ *
+ * A regra em si mora em `telefone.ts`, para a importação de contatos não ter
+ * uma segunda versão dela: duas cópias divergem, e aí o número que o formulário
+ * aceita a importação recusa.
  */
 export function telefone(fd: FormData, campo: string, rotulo: string): string {
-  const digitos = texto(fd, campo, rotulo).replace(/\D/g, "");
+  const digitado = texto(fd, campo, rotulo);
+  const numero = normalizarTelefone(digitado);
+  if (numero) return numero;
 
-  if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
-  if (digitos.length === 12 || digitos.length === 13) {
-    if (!digitos.startsWith("55")) {
-      throw new ErroDeCampo(campo, `${rotulo}: só atendemos números do Brasil.`);
-    }
-    return digitos;
+  // Se dá para ver que é de fora, a mensagem diz isso em vez de acusar erro de
+  // digitação num número que está certo — só não é daqui.
+  const digitos = digitado.replace(/\D/g, "");
+  if (digitado.trimStart().startsWith("+") && !digitos.startsWith("55")) {
+    throw new ErroDeCampo(campo, `${rotulo}: só atendemos números do Brasil.`);
   }
   throw new ErroDeCampo(
     campo,

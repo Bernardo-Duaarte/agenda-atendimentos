@@ -27,7 +27,18 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
 
   return (
     <>
-      <Titulo acao={<BotaoLink href="/clientes/novo">Nova cliente</BotaoLink>}>Clientes</Titulo>
+      <Titulo
+        acao={
+          <div className="flex flex-wrap gap-2">
+            <BotaoLink href="/clientes/importar" variante="secundario">
+              Importar contatos
+            </BotaoLink>
+            <BotaoLink href="/clientes/novo">Nova cliente</BotaoLink>
+          </div>
+        }
+      >
+        Clientes
+      </Titulo>
 
       {typeof erro === "string" && <Aviso>{erro}</Aviso>}
 
@@ -46,9 +57,18 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
           descricao={
             busca
               ? `Nada bate com "${busca}". Tente parte do nome ou só o DDD.`
-              : "Cadastre a primeira e ela já fica disponível na hora de marcar um atendimento."
+              : "Cadastre a primeira e ela já fica disponível na hora de marcar um atendimento. Se suas clientes já estão nos contatos do telefone, dá para trazer de lá."
           }
-          acao={!busca && <BotaoLink href="/clientes/novo">Cadastrar cliente</BotaoLink>}
+          acao={
+            !busca && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <BotaoLink href="/clientes/novo">Cadastrar cliente</BotaoLink>
+                <BotaoLink href="/clientes/importar" variante="secundario">
+                  Importar contatos
+                </BotaoLink>
+              </div>
+            )
+          }
         />
       ) : (
         <Cartao className="divide-y divide-borda-suave">
