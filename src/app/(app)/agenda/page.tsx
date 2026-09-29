@@ -54,6 +54,13 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
           Próximo dia →
         </Link>
 
+        <Link
+          href={`/agenda/mes?m=${dia.slice(0, 7)}`}
+          className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-marca transition hover:bg-superficie-suave"
+        >
+          Ver o mês
+        </Link>
+
         <div className="ml-auto">
           <SeletorDeDia dia={dia} />
         </div>

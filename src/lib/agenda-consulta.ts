@@ -102,3 +102,35 @@ export async function momentoAgora(): Promise<{ data: string; hora: string }> {
   const d = new Date();
   return { data: paraInputDate(d), hora: paraInputTime(d) };
 }
+
+/**
+ * Os atendimentos de um mês, agrupados por dia.
+ *
+ * O agrupamento é pela data em São Paulo, e não pela data guardada: um
+ * atendimento das 22h de dia 31 está gravado como dia 1 em UTC, e cairia no
+ * mês seguinte se agrupado sem converter.
+ */
+export async function atendimentosDoMes(mes: string) {
+  const inicio = paraUtc(`${mes}-01`, "00:00");
+  const [ano, m] = mes.split("-").map(Number);
+  const proximo = m === 12 ? `${ano! + 1}-01-01` : `${ano}-${String(m! + 1).padStart(2, "0")}-01`;
+  const fim = paraUtc(proximo, "00:00");
+
+  const atendimentos = await prisma.agendamento.findMany({
+    where: { inicio: { gte: inicio, lt: fim } },
+    orderBy: { inicio: "asc" },
+    include: {
+      cliente: { select: { nome: true } },
+      servico: { select: { nome: true } },
+    },
+  });
+
+  const porDia = new Map<string, typeof atendimentos>();
+  for (const a of atendimentos) {
+    const dia = paraInputDate(a.inicio);
+    const lista = porDia.get(dia) ?? [];
+    lista.push(a);
+    porDia.set(dia, lista);
+  }
+  return porDia;
+}
