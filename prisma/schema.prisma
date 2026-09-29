@@ -304,6 +304,13 @@ model Configuracao {
   /// O padrão exclui o domingo.
   diasNormais String @default("1,2,3,4,5,6")
 
+  /// Endereço do seu calendário pessoal publicado, para a agenda mostrar seus
+  /// compromissos junto e avisar de choque.
+  ///
+  /// É só leitura: o iPhone não deixa site nenhum escrever no Calendário, e
+  /// um evento de lá não tem cliente nem preço para virar atendimento.
+  calendarioExternoUrl String?
+
   /// Fórmula da taxa de deslocamento, no formato em que o Uber cobra:
   /// base + (por km × km) + (por minuto × minutos), tudo em centavos.
   ///

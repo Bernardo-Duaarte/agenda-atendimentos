@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "./prisma";
 import { paraInputDate, paraInputTime, paraUtc } from "./tempo";
 import { haConflito } from "./agenda";
+import { compromissosExternos, compromissosQueCruzam } from "./calendario-externo";
+import { janelaOcupada } from "./tempo";
 
 /**
  * Consultas da agenda.
@@ -74,15 +76,39 @@ async function conflitosNoDia(dataTexto: string): Promise<Map<string, string[]>>
 
 /** Quantos atendimentos há em cada dia, para marcar os dias cheios na navegação. */
 export async function resumoDoDia(dataTexto: string) {
-  const [atendimentos, conflitos] = await Promise.all([
+  const inicioDoDia = paraUtc(dataTexto, "00:00");
+  const fimDoDia = new Date(inicioDoDia.getTime() + DIA_MS);
+
+  const config = await prisma.configuracao.findUnique({
+    where: { id: "unica" },
+    select: { calendarioExternoUrl: true },
+  });
+
+  const [atendimentos, conflitos, externos] = await Promise.all([
     atendimentosDoDia(dataTexto),
     conflitosNoDia(dataTexto),
+    compromissosExternos(config?.calendarioExternoUrl, inicioDoDia, fimDoDia),
   ]);
+
+  // Um atendimento em cima de um compromisso pessoal: avisa, não bloqueia —
+  // só você sabe se dá para remarcar o outro.
+  const choquesPessoais = new Map<string, string[]>();
+  if (externos.ok) {
+    for (const a of atendimentos) {
+      if (a.status === "CANCELADO") continue;
+      const j = janelaOcupada(a);
+      const cruzam = compromissosQueCruzam(externos.compromissos, j.de, j.ate);
+      if (cruzam.length) choquesPessoais.set(a.id, cruzam.map((c) => c.titulo));
+    }
+  }
   const ativos = atendimentos.filter((a) => a.status !== "CANCELADO");
 
   return {
     atendimentos,
     conflitos,
+    compromissosPessoais: externos.ok ? externos.compromissos : [],
+    erroCalendarioPessoal: externos.ok ? null : externos.erro,
+    choquesPessoais,
     total: ativos.length,
     faturamento: ativos
       .filter((a) => a.status === "CONCLUIDO")

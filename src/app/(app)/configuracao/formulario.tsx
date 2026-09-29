@@ -13,6 +13,7 @@ export type ConfiguracaoAtual = {
   horaAbertura: string;
   horaFechamento: string;
   diasNormais: string;
+  calendarioExternoUrl: string | null;
   taxaBaseReais: string;
   taxaPorKmReais: string;
   taxaPorMinutoReais: string;
@@ -100,6 +101,31 @@ export function FormularioConfiguracao({
               </label>
             ))}
           </div>
+        </Campo>
+      </Cartao>
+
+      <Cartao className="space-y-5 p-6">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">
+            Sua agenda pessoal
+          </h2>
+          <p className="mt-1 text-sm text-texto-fraco">
+            Os compromissos do seu calendário aparecem junto na agenda e avisam quando você tenta
+            marcar em cima. É só leitura — o iPhone não deixa nenhum site escrever no Calendário.
+          </p>
+          <p className="mt-2 text-sm text-texto-fraco">
+            No iPhone: Calendário → toque no ⓘ do calendário → <strong className="text-texto-suave">Calendário
+            Público</strong> → copie o link e cole aqui. Quem tiver esse link vê esse calendário,
+            então use um só com o que não for íntimo.
+          </p>
+        </div>
+
+        <Campo rotulo="Link do calendário publicado" erro={erro("calendarioExternoUrl")} dica="Começa com webcal:// ou https://">
+          <Entrada
+            name="calendarioExternoUrl"
+            defaultValue={atual.calendarioExternoUrl ?? ""}
+            placeholder="webcal://p00-calendars.icloud.com/published/..."
+          />
         </Campo>
       </Cartao>
 

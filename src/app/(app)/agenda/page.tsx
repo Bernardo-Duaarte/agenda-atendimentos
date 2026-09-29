@@ -13,7 +13,8 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   const hoje = hojeEmSaoPaulo();
   const dia = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : hoje;
 
-  const { atendimentos, conflitos, total, previsto } = await resumoDoDia(dia);
+  const { atendimentos, conflitos, compromissosPessoais, erroCalendarioPessoal, choquesPessoais, total, previsto } =
+    await resumoDoDia(dia);
 
   return (
     <>
@@ -66,6 +67,32 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
         </div>
       </nav>
 
+      {compromissosPessoais.length > 0 && (
+        <Cartao className="mb-5 p-4">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-texto-fraco">
+            Da sua agenda pessoal
+          </h2>
+          <ul className="space-y-1 text-sm">
+            {compromissosPessoais.map((c) => (
+              <li key={c.id} className="flex gap-3">
+                <span className="w-24 shrink-0 font-mono text-xs text-texto-fraco">
+                  {c.diaInteiro ? "dia inteiro" : `${hora(c.inicio)}–${hora(c.fim)}`}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-texto-suave">{c.titulo}</span>
+              </li>
+            ))}
+          </ul>
+        </Cartao>
+      )}
+
+      {erroCalendarioPessoal && (
+        <Cartao className="mb-5 border-atencao-fundo p-4">
+          <p className="text-sm text-atencao-texto">
+            Sua agenda pessoal não pôde ser lida: {erroCalendarioPessoal}
+          </p>
+        </Cartao>
+      )}
+
       {atendimentos.length === 0 ? (
         <Vazio
           titulo="Dia livre"
@@ -100,6 +127,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
                     <EtiquetaStatus status={a.status} />
                     {a.local === "DOMICILIO" && <Etiqueta>domicílio</Etiqueta>}
                     {conflitos.has(a.id) && <Etiqueta tom="alerta">choca com outro</Etiqueta>}
+                    {choquesPessoais.has(a.id) && <Etiqueta tom="alerta">agenda pessoal</Etiqueta>}
                   </div>
                   <p className="mt-0.5 truncate text-sm text-texto-fraco">
                     {a.servico.nome}
@@ -108,6 +136,11 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
                   {conflitos.has(a.id) && (
                     <p className="mt-0.5 text-sm text-atencao-texto">
                       Mesmo horário de {conflitos.get(a.id)!.join(", ")} — quem pagar o sinal fica
+                    </p>
+                  )}
+                  {choquesPessoais.has(a.id) && (
+                    <p className="mt-0.5 text-sm text-atencao-texto">
+                      Em cima de {choquesPessoais.get(a.id)!.join(", ")}, da sua agenda pessoal
                     </p>
                   )}
                 </div>

@@ -48,6 +48,7 @@ export async function salvarConfiguracao(
       horaAbertura: abertura,
       horaFechamento: fechamento,
       diasNormais: dias.join(","),
+      calendarioExternoUrl: textoOpcional(fd, "calendarioExternoUrl"),
       taxaBaseCentavos: dinheiro(fd, "taxaBaseCentavos", "Valor base"),
       taxaPorKmCentavos: dinheiro(fd, "taxaPorKmCentavos", "Valor por km"),
       taxaPorMinutoCentavos: dinheiro(fd, "taxaPorMinutoCentavos", "Valor por minuto"),
