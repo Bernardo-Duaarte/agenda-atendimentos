@@ -97,7 +97,11 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
             <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
               {formatarReal(r.sobra)}
             </p>
-            <p className="text-xs text-texto-fraco">entrou menos repasses</p>
+            {/* Diz a conta inteira: um desconto que a tela não explica é o
+                que faz o número parecer errado. */}
+            <p className="text-xs text-texto-fraco">
+              {ESTOQUE_ATIVO ? "entrou menos repasses e produtos" : "entrou menos repasses"}
+            </p>
           </Cartao>
         )}
         <Cartao className="p-5">

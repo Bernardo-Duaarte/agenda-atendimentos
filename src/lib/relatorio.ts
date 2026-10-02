@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { paraUtc } from "./tempo";
 import { resumoFinanceiro } from "./financeiro";
+import { ESTOQUE_ATIVO } from "./recursos";
 
 /**
  * Relatório do mês.
@@ -80,9 +81,16 @@ export async function relatorioDoMes(mes: string) {
   const valem = contas.filter((c) => c.atendimento.status !== "CANCELADO");
   const concluidos = contas.filter((c) => c.atendimento.status === "CONCLUIDO");
 
-  // Só custo de atendimento que aconteceu: o estimado de um que ainda não
-  // ocorreu não é despesa, é previsão.
-  const custoProdutos = concluidos.reduce((t, c) => t + c.conta.custoProdutos, 0);
+  // Produtos saíram do app por sua decisão, porque o gasto é difícil de
+  // dimensionar. Então o custo deles também sai da conta do mês: do contrário o
+  // valor cai sem nenhum cartão na tela para explicar o desconto.
+  //
+  // Os lançamentos antigos continuam no banco. Se o controle de estoque voltar,
+  // o número volta a considerá-los — e aí só o custo real, nunca a estimativa:
+  // o previsto de um produto que talvez não tenha sido usado não é despesa.
+  const custoProdutos = ESTOQUE_ATIVO
+    ? concluidos.reduce((t, c) => (c.conta.custoEhEstimativa ? t : t + c.conta.custoProdutos), 0)
+    : 0;
 
   // Repasse às parceiras: dinheiro que entra e sai. Conta a partir do que foi
   // recebido, não do combinado — repassar o que ainda não entrou seria mentira.
