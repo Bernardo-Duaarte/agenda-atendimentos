@@ -9,12 +9,36 @@ import {
   comValidacao,
   percentual,
   dinheiro,
+  dinheiroOpcional,
   inteiro,
+  inteiroOpcional,
   texto,
   textoOpcional,
   ErroDeCampo,
   type EstadoFormulario,
 } from "@/lib/formulario";
+
+/**
+ * O sinal vem de um jeito ou do outro, nunca dos dois.
+ *
+ * O formulário mostra só o campo do modo escolhido, então é a presença do
+ * campo que diz qual vale. Gravar o fixo como nulo quando ele não veio é o que
+ * devolve o serviço para a porcentagem — sem isso, trocar de valor fixo para
+ * porcentagem não teria efeito, porque o valor antigo continuaria no banco e
+ * continuaria ganhando.
+ */
+function dadosDoSinal(fd: FormData): {
+  percentualSinal: number;
+  sinalFixoCentavos: number | null;
+} {
+  const fixo = dinheiroOpcional(fd, "sinalFixoCentavos", "Valor do sinal");
+  if (fixo != null) {
+    // A porcentagem fica guardada como estava, para voltar a valer se um dia
+    // você trocar o modo de novo.
+    return { percentualSinal: inteiroOpcional(fd, "percentualSinal") ?? 30, sinalFixoCentavos: fixo };
+  }
+  return { percentualSinal: percentual(fd, "percentualSinal", "Sinal"), sinalFixoCentavos: null };
+}
 
 function dadosDoServico(fd: FormData) {
   return {
@@ -22,7 +46,7 @@ function dadosDoServico(fd: FormData) {
     descricao: textoOpcional(fd, "descricao"),
     precoCentavos: dinheiro(fd, "precoCentavos", "Preço"),
     duracaoMin: inteiro(fd, "duracaoMin", "Duração", { min: 5 }),
-    percentualSinal: percentual(fd, "percentualSinal", "Sinal"),
+    ...dadosDoSinal(fd),
     // Serviço de parceira: o atendimento passa a exigir escolher quem atende,
     // e o preço vem da tabela dela.
     exigeProfissional: booleano(fd, "exigeProfissional"),

@@ -4,13 +4,21 @@ import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
+import { SeletorCliente } from "@/components/seletor-cliente";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
+import { calcularSinal } from "@/lib/financeiro";
 import { calcularDeslocamento } from "./acao-deslocamento";
 import { precoParaOHorario, type JanelaNormal } from "@/lib/precificacao";
 import { paraCampoReal, paraCentavos } from "@/lib/dinheiro";
 import { paraUtc } from "@/lib/tempo";
 
-export type ClienteOpcao = { id: string; nome: string; enderecoPadrao: string | null };
+export type ClienteOpcao = {
+  id: string;
+  nome: string;
+  /** Mostrado e buscável no seletor: dois nomes iguais se distinguem por ele. */
+  telefone: string;
+  enderecoPadrao: string | null;
+};
 export type ProfissionalOpcao = {
   id: string;
   nome: string;
@@ -22,6 +30,8 @@ export type ServicoOpcao = {
   nome: string;
   duracaoMin: number;
   percentualSinal: number;
+  /** Quando preenchido, o sinal é esse valor e não uma porcentagem. */
+  sinalFixoCentavos: number | null;
   /** Em centavos: base e os acréscimos que podem somar. */
   precoCentavos: number;
   acrescimoDomicilioCentavos: number;
@@ -54,6 +64,7 @@ export function FormularioAtendimento({
   profissionais,
   atendimento,
   dataInicial,
+  clienteInicial,
   janela,
   descricaoJanela,
 }: {
@@ -64,6 +75,8 @@ export function FormularioAtendimento({
   atendimento?: AtendimentoEmEdicao;
   /** Deixa o campo de data já preenchido ao marcar a partir de um dia da agenda. */
   dataInicial?: string;
+  /** Vindo de "Agendar atendimento" na ficha da cliente: ela já vem escolhida. */
+  clienteInicial?: string;
   /** Quando vale o preço normal. A mesma regra roda no servidor ao salvar. */
   janela: JanelaNormal;
   descricaoJanela: string;
@@ -71,7 +84,9 @@ export function FormularioAtendimento({
   const [estado, enviar] = useActionState(acao, estadoInicial);
   const erro = (campo: string) => estado.erros?.[campo];
 
-  const [clienteId, setClienteId] = useState(atendimento?.clienteId ?? "");
+  const [clienteId, setClienteId] = useState(
+    atendimento?.clienteId ?? clienteInicial ?? "",
+  );
   const [profissionalId, setProfissionalId] = useState(atendimento?.profissionalId ?? "");
   const [servicoId, setServicoId] = useState(atendimento?.servicoId ?? servicos[0]?.id ?? "");
   const [local, setLocal] = useState<"ESTUDIO" | "DOMICILIO">(atendimento?.local ?? "ESTUDIO");
@@ -131,7 +146,13 @@ export function FormularioAtendimento({
   const [preco, setPreco] = useState(atendimento?.precoReais ?? paraCampoReal(inicial.centavos));
   const [sinal, setSinal] = useState(
     atendimento?.sinalReais ??
-      paraCampoReal(Math.round((inicial.centavos * (servicoInicial?.percentualSinal ?? 30)) / 100)),
+      paraCampoReal(
+        calcularSinal(
+          inicial.centavos,
+          servicoInicial?.percentualSinal ?? 30,
+          servicoInicial?.sinalFixoCentavos,
+        ),
+      ),
   );
   const [acrescimos, setAcrescimos] = useState({
     fora: inicial.fora,
@@ -162,7 +183,9 @@ export function FormularioAtendimento({
     const r = precoDoMomento(s, dia, hh, ondeE, profId);
     setAcrescimos({ fora: r.fora, domicilio: r.domicilio, horario: r.horario });
     setPreco(paraCampoReal(r.centavos));
-    setSinal(paraCampoReal(Math.round((r.centavos * (s?.percentualSinal ?? 30)) / 100)));
+    setSinal(
+      paraCampoReal(calcularSinal(r.centavos, s?.percentualSinal ?? 30, s?.sinalFixoCentavos)),
+    );
   }
 
   function escolherServico(id: string) {
@@ -224,12 +247,16 @@ export function FormularioAtendimento({
     });
   }
 
-  /** Mexer no preço à mão reajusta só o sinal, mantendo o percentual. */
+  /** Mexer no preço à mão reajusta o sinal pela regra do serviço. */
   function escolherPreco(novo: string) {
     setPreco(novo);
     if (!servico) return;
     try {
-      setSinal(paraCampoReal(Math.round((paraCentavos(novo) * servico.percentualSinal) / 100)));
+      setSinal(
+        paraCampoReal(
+          calcularSinal(paraCentavos(novo), servico.percentualSinal, servico.sinalFixoCentavos),
+        ),
+      );
     } catch {
       // Preço no meio da digitação: deixa o sinal como está.
     }
@@ -264,17 +291,12 @@ export function FormularioAtendimento({
 
       <Cartao className="space-y-5 p-6">
         <Campo rotulo="Cliente" erro={erro("clienteId")}>
-          <Selecao
-            name="clienteId"
-            value={clienteId}
-            onChange={(e) => escolherCliente(e.target.value)}
+          <SeletorCliente
+            clientes={clientes}
+            valor={clienteId}
+            onEscolher={escolherCliente}
             erro={!!erro("clienteId")}
-          >
-            <option value="">Escolha…</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </Selecao>
+          />
         </Campo>
 
         <Campo
@@ -468,7 +490,13 @@ export function FormularioAtendimento({
           <Campo
             rotulo="Sinal para confirmar"
             erro={erro("sinalCentavos")}
-            dica={servico ? `${servico.percentualSinal}% do preço. Pagou, o horário é dela.` : undefined}
+            dica={
+              servico
+                ? servico.sinalFixoCentavos != null
+                  ? `Valor fixo deste serviço. Pagou, o horário é dela.`
+                  : `${servico.percentualSinal}% do preço. Pagou, o horário é dela.`
+                : undefined
+            }
           >
             <Entrada
               name="sinalCentavos"

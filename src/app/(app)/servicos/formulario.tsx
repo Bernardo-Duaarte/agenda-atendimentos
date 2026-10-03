@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
-import { AreaTexto, Aviso, Campo, Cartao, Entrada } from "@/components/ui";
+import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
@@ -14,6 +14,8 @@ export type ProdutoDisponivel = {
   unidade: string;
 };
 
+type ModoSinal = "PERCENTUAL" | "FIXO";
+
 export type ServicoEmEdicao = {
   id: string;
   nome: string;
@@ -21,6 +23,8 @@ export type ServicoEmEdicao = {
   precoReais: string;
   duracaoMin: number;
   percentualSinal: number;
+  /** Vazio quando o sinal é por porcentagem. */
+  sinalFixoReais: string | null;
   acrescimoDomicilioReais: string;
   acrescimoForaHorarioReais: string;
   exigeProfissional: boolean;
@@ -42,6 +46,11 @@ export function FormularioServico({
 }) {
   const [estado, enviar] = useActionState(acao, estadoInicial);
   const erro = (campo: string) => estado.erros?.[campo];
+
+  // Um serviço que já tem valor fixo guardado abre no modo valor.
+  const [modoSinal, setModoSinal] = useState<ModoSinal>(
+    servico?.sinalFixoReais ? "FIXO" : "PERCENTUAL",
+  );
 
   return (
     <form action={enviar} className="space-y-6">
@@ -110,7 +119,7 @@ export function FormularioServico({
           Os dois somam: um domicílio fora do horário paga os dois acréscimos.
         </p>
 
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2">
           <Campo rotulo="Preço" erro={erro("precoCentavos")}>
             <Entrada
               name="precoCentavos"
@@ -118,20 +127,6 @@ export function FormularioServico({
               erro={!!erro("precoCentavos")}
               inputMode="decimal"
               placeholder="150,00"
-            />
-          </Campo>
-
-          <Campo
-            rotulo="Sinal (%)"
-            erro={erro("percentualSinal")}
-            dica="Quanto se pede adiantado para garantir o horário."
-          >
-            <Entrada
-              name="percentualSinal"
-              defaultValue={servico?.percentualSinal ?? 30}
-              erro={!!erro("percentualSinal")}
-              inputMode="numeric"
-              placeholder="30"
             />
           </Campo>
 
@@ -148,6 +143,58 @@ export function FormularioServico({
               placeholder="60"
             />
           </Campo>
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-texto-suave">
+            Sinal para garantir o horário
+          </span>
+
+          <Selecao
+            value={modoSinal}
+            onChange={(e) => setModoSinal(e.target.value as ModoSinal)}
+            aria-label="Como calcular o sinal"
+          >
+            <option value="PERCENTUAL">Porcentagem do preço</option>
+            <option value="FIXO">Valor fixo em reais</option>
+          </Selecao>
+
+          {/* Só o campo do modo escolhido é enviado. O outro nem existe no
+              formulário, então não há valor antigo escondido para o servidor
+              ler por engano. */}
+          {modoSinal === "PERCENTUAL" ? (
+            <div className="mt-3">
+              <Campo
+                rotulo="Quanto por cento"
+                erro={erro("percentualSinal")}
+                dica="Acompanha o preço: se o preço muda, o sinal muda junto."
+              >
+                <Entrada
+                  name="percentualSinal"
+                  defaultValue={servico?.percentualSinal ?? 30}
+                  erro={!!erro("percentualSinal")}
+                  inputMode="numeric"
+                  placeholder="30"
+                />
+              </Campo>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <Campo
+                rotulo="Valor do sinal"
+                erro={erro("sinalFixoCentavos")}
+                dica="O mesmo valor em qualquer preço. Serve para serviço cujo preço varia, como noiva. Se passar do preço do atendimento, vale o preço."
+              >
+                <Entrada
+                  name="sinalFixoCentavos"
+                  defaultValue={servico?.sinalFixoReais ?? ""}
+                  erro={!!erro("sinalFixoCentavos")}
+                  inputMode="decimal"
+                  placeholder="200,00"
+                />
+              </Campo>
+            </div>
+          )}
         </div>
       </Cartao>
 

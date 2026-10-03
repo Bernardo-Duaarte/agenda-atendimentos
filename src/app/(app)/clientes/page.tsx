@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatarTelefone, linkWhatsApp } from "@/lib/whatsapp";
-import { Aviso, BotaoLink, Cartao, Entrada, Etiqueta, Titulo, Vazio } from "@/components/ui";
+import { Aviso, BotaoLink, Titulo } from "@/components/ui";
 import { exigirSessao } from "@/lib/sessao";
+import { ListaClientes } from "./lista";
 
 export default async function PaginaClientes(props: PageProps<"/clientes">) {
   // Verificada de novo aqui, e não só no layout: numa navegação pelo
@@ -10,19 +9,19 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
   await exigirSessao();
 
   const { q, erro } = await props.searchParams;
-  const busca = typeof q === "string" ? q.trim() : "";
 
+  // A lista vem inteira e o filtro é na tela. Buscar no banco por nome não
+  // ignora acento, e era isso que fazia "julia" não achar "Júlia".
   const clientes = await prisma.cliente.findMany({
-    where: busca
-      ? {
-          OR: [
-            { nome: { contains: busca, mode: "insensitive" } },
-            { telefone: { contains: busca.replace(/\D/g, "") } },
-          ],
-        }
-      : undefined,
     orderBy: { nome: "asc" },
-    include: { _count: { select: { agendamentos: true } } },
+    select: {
+      id: true,
+      nome: true,
+      telefone: true,
+      tomPele: true,
+      alergias: true,
+      _count: { select: { agendamentos: true } },
+    },
   });
 
   return (
@@ -42,68 +41,17 @@ export default async function PaginaClientes(props: PageProps<"/clientes">) {
 
       {typeof erro === "string" && <Aviso>{erro}</Aviso>}
 
-      <form className="mb-5">
-        <Entrada
-          name="q"
-          defaultValue={busca}
-          placeholder="Buscar por nome ou telefone..."
-          aria-label="Buscar cliente"
-        />
-      </form>
-
-      {clientes.length === 0 ? (
-        <Vazio
-          titulo={busca ? "Nenhuma cliente encontrada" : "Nenhuma cliente cadastrada"}
-          descricao={
-            busca
-              ? `Nada bate com "${busca}". Tente parte do nome ou só o DDD.`
-              : "Cadastre a primeira e ela já fica disponível na hora de marcar um atendimento. Se suas clientes já estão nos contatos do telefone, dá para trazer de lá."
-          }
-          acao={
-            !busca && (
-              <div className="flex flex-wrap justify-center gap-2">
-                <BotaoLink href="/clientes/novo">Cadastrar cliente</BotaoLink>
-                <BotaoLink href="/clientes/importar" variante="secundario">
-                  Importar contatos
-                </BotaoLink>
-              </div>
-            )
-          }
-        />
-      ) : (
-        <Cartao className="divide-y divide-borda-suave">
-          {clientes.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/clientes/${c.id}`} className="font-medium text-texto hover:text-marca">
-                    {c.nome}
-                  </Link>
-                  {c.alergias && <Etiqueta tom="alerta">alergia</Etiqueta>}
-                  {c._count.agendamentos > 0 && (
-                    <Etiqueta>
-                      {c._count.agendamentos} atendimento{c._count.agendamentos > 1 ? "s" : ""}
-                    </Etiqueta>
-                  )}
-                </div>
-                <p className="mt-0.5 truncate text-sm text-texto-fraco">
-                  {formatarTelefone(c.telefone)}
-                  {c.tomPele && ` · ${c.tomPele}`}
-                </p>
-              </div>
-
-              <a
-                href={linkWhatsApp(c.telefone, `Oi, ${c.nome.split(" ")[0]}!`)}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
-              >
-                WhatsApp
-              </a>
-            </div>
-          ))}
-        </Cartao>
-      )}
+      <ListaClientes
+        clientes={clientes.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          telefone: c.telefone,
+          tomPele: c.tomPele,
+          alergias: c.alergias,
+          atendimentos: c._count.agendamentos,
+        }))}
+        buscaInicial={typeof q === "string" ? q : ""}
+      />
     </>
   );
 }

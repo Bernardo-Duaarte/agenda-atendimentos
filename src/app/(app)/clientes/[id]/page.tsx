@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { atualizarCliente, excluirCliente } from "../acoes";
 import { FormularioCliente } from "../formulario";
-import { Cartao, EtiquetaStatus, Titulo } from "@/components/ui";
+import { BotaoLink, Cartao, EtiquetaStatus, Titulo } from "@/components/ui";
+import { linkWhatsApp } from "@/lib/whatsapp";
 import { historicoDaCliente } from "@/lib/relatorio";
 import { formatarReal } from "@/lib/dinheiro";
 import { dataCurta, hora } from "@/lib/tempo";
@@ -24,7 +25,24 @@ export default async function EditarCliente(props: PageProps<"/clientes/[id]">) 
 
   return (
     <>
-      <Titulo>{cliente.nome}</Titulo>
+      <Titulo
+        acao={
+          <div className="flex flex-wrap gap-2">
+            {/* O id vai na URL e o atendimento já nasce com ela escolhida. */}
+            <BotaoLink href={`/agenda/novo?cliente=${cliente.id}`}>Agendar atendimento</BotaoLink>
+            <a
+              href={linkWhatsApp(cliente.telefone, `Oi, ${cliente.nome.split(" ")[0]}!`)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg border border-borda bg-superficie px-4 py-2 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
+            >
+              WhatsApp
+            </a>
+          </div>
+        }
+      >
+        {cliente.nome}
+      </Titulo>
 
       {historico.contas.length > 0 && (
         <>

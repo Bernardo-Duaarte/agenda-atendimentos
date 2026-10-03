@@ -9,20 +9,20 @@ import { hojeEmSaoPaulo } from "@/lib/agenda-consulta";
 export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) {
   await exigirSessao();
 
-  const { d } = await props.searchParams;
+  const { d, cliente } = await props.searchParams;
   const dia = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : hojeEmSaoPaulo();
 
   const [clientes, servicos, { janela, descricao }, profissionais] = await Promise.all([
     prisma.cliente.findMany({
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, enderecoPadrao: true },
+      select: { id: true, nome: true, telefone: true, enderecoPadrao: true },
     }),
     prisma.servico.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
       select: {
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
-        percentualSinal: true,
+        percentualSinal: true, sinalFixoCentavos: true,
         acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
         exigeProfissional: true,
       },
@@ -46,6 +46,7 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
           nome: s.nome,
           duracaoMin: s.duracaoMin,
           percentualSinal: s.percentualSinal,
+          sinalFixoCentavos: s.sinalFixoCentavos,
           precoCentavos: s.precoCentavos,
           acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
           acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
@@ -54,6 +55,13 @@ export default async function NovoAtendimento(props: PageProps<"/agenda/novo">) 
         // Só para o campo de data já vir preenchido com o dia que estava sendo
         // olhado na agenda; o resto do formulário nasce em branco.
         dataInicial={dia}
+        // Confere contra a lista: um id inventado na URL não deve virar uma
+        // escolha fantasma que o seletor não consegue mostrar.
+        clienteInicial={
+          typeof cliente === "string" && clientes.some((c) => c.id === cliente)
+            ? cliente
+            : undefined
+        }
         profissionais={profissionais}
         janela={janela}
         descricaoJanela={descricao}

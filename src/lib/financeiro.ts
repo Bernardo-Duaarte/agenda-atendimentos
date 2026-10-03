@@ -41,7 +41,26 @@ export type ResumoFinanceiro = {
   sobra: number;
 };
 
-export function calcularSinal(precoCentavos: number, percentual: number): number {
+/**
+ * Quanto se pede de sinal.
+ *
+ * Duas formas, porque uma só não dava conta: porcentagem do preço, ou um valor
+ * fixo. O fixo existe para serviço cujo preço varia mas o sinal é sempre o
+ * mesmo — uma noiva de R$ 900 e uma de R$ 1.500 podem ter o mesmo sinal.
+ *
+ * `sinalFixoCentavos` nulo quer dizer "usa a porcentagem"; zero quer dizer
+ * "não pede sinal", que é resposta diferente e legítima.
+ */
+export function calcularSinal(
+  precoCentavos: number,
+  percentual: number,
+  sinalFixoCentavos?: number | null,
+): number {
+  if (sinalFixoCentavos != null) {
+    // Nunca mais do que o próprio atendimento: um sinal fixo de R$ 200 num
+    // serviço de R$ 90 pediria adiantado mais do que o preço.
+    return Math.min(sinalFixoCentavos, precoCentavos);
+  }
   return Math.round((precoCentavos * percentual) / 100);
 }
 

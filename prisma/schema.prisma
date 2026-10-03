@@ -91,6 +91,16 @@ model Servico {
   /// atendimento específico.
   percentualSinal Int @default(30)
 
+  /// Sinal em valor fixo, em centavos, quando a porcentagem não serve.
+  ///
+  /// Existe porque há serviço cujo preço varia mas o sinal é sempre o mesmo —
+  /// uma noiva de R$ 900 ou de R$ 1.500 pode ter o mesmo sinal combinado. Com
+  /// porcentagem, cada preço daria um sinal diferente.
+  ///
+  /// Nulo significa "usa a porcentagem". É nulo, e não zero, porque zero é uma
+  /// resposta legítima: serviço que não pede sinal nenhum.
+  sinalFixoCentavos Int?
+
   /// Este serviço é feito por uma parceira, e não por você?
   ///
   /// Quando sim, o atendimento exige escolher a profissional e o preço vem da

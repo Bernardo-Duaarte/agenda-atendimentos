@@ -21,16 +21,20 @@ export type ClienteEmEdicao = {
 export function FormularioCliente({
   acao,
   cliente,
+  inicial,
 }: {
   acao: (estado: EstadoFormulario, fd: FormData) => Promise<EstadoFormulario>;
   cliente?: ClienteEmEdicao;
+  /** Cadastro novo que nasce preenchido com o que foi buscado e não existia. */
+  inicial?: { nome: string; telefone: string };
 }) {
   const [estado, enviar] = useActionState(acao, estadoInicial);
   const erro = (campo: string) => estado.erros?.[campo];
 
   // O telefone é guardado em E.164 (5511999999999). Na tela mostramos só
   // DDD + número, que é como se digita.
-  const telefoneVisivel = cliente?.telefone.replace(/^55/, "") ?? "";
+  const telefoneVisivel =
+    cliente?.telefone.replace(/^55/, "") ?? inicial?.telefone.replace(/^55/, "") ?? "";
 
   return (
     <form action={enviar} className="space-y-6">
@@ -41,7 +45,13 @@ export function FormularioCliente({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-texto-fraco">Contato</h2>
 
         <Campo rotulo="Nome" erro={erro("nome")}>
-          <Entrada name="nome" defaultValue={cliente?.nome} erro={!!erro("nome")} autoFocus placeholder="Maria Silva" />
+          <Entrada
+            name="nome"
+            defaultValue={cliente?.nome ?? inicial?.nome}
+            erro={!!erro("nome")}
+            autoFocus
+            placeholder="Maria Silva"
+          />
         </Campo>
 
         <div className="grid gap-5 sm:grid-cols-2">

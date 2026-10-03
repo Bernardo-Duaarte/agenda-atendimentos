@@ -56,13 +56,16 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
         pagamentos: { orderBy: { pagoEm: "desc" } },
       },
     }),
-    prisma.cliente.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, enderecoPadrao: true } }),
+    prisma.cliente.findMany({
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, telefone: true, enderecoPadrao: true },
+    }),
     prisma.servico.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
       select: {
         id: true, nome: true, precoCentavos: true, duracaoMin: true,
-        percentualSinal: true,
+        percentualSinal: true, sinalFixoCentavos: true,
         acrescimoDomicilioCentavos: true, acrescimoForaHorarioCentavos: true,
         exigeProfissional: true,
       },
@@ -178,7 +181,9 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           </div>
           <div>
             <p className="text-xs text-texto-fraco">
-              Sinal ({a.servico.percentualSinal}%)
+              {/* Com sinal fixo a porcentagem não descreve nada: o valor pode
+                  ter sido ajustado à mão neste atendimento. */}
+              {a.servico.sinalFixoCentavos != null ? "Sinal" : `Sinal (${a.servico.percentualSinal}%)`}
             </p>
             <p className={`text-xl font-semibold ${conta.sinalQuitado ? "text-positivo" : "text-atencao"}`}>
               {formatarReal(conta.sinal)}
@@ -400,6 +405,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
           nome: s.nome,
           duracaoMin: s.duracaoMin,
           percentualSinal: s.percentualSinal,
+          sinalFixoCentavos: s.sinalFixoCentavos,
           precoCentavos: s.precoCentavos,
           acrescimoDomicilioCentavos: s.acrescimoDomicilioCentavos,
           acrescimoForaHorarioCentavos: s.acrescimoForaHorarioCentavos,
