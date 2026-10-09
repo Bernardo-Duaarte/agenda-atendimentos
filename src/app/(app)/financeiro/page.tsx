@@ -17,6 +17,39 @@ function nomeDoMes(mes: string): string {
   return `${MESES[Number(m) - 1]} de ${ano}`;
 }
 
+/**
+ * Um número com rótulo. Existe para os dois blocos terem a mesma aparência e
+ * ficar claro, à distância, que são contas irmãs e não a mesma conta.
+ */
+function Numero({
+  rotulo,
+  valor,
+  explica,
+  tom = "normal",
+  destaque = false,
+}: {
+  rotulo: string;
+  valor: number;
+  explica?: string;
+  tom?: "normal" | "bom" | "atencao" | "fraco";
+  destaque?: boolean;
+}) {
+  const cor = {
+    normal: "text-texto",
+    bom: "text-positivo",
+    atencao: "text-atencao",
+    fraco: "text-texto-fraco",
+  }[tom];
+
+  return (
+    <div className={destaque ? "rounded-lg bg-superficie-suave px-4 py-3" : ""}>
+      <p className="text-sm font-medium text-texto-suave">{rotulo}</p>
+      <p className={`mt-1 text-2xl font-semibold ${cor}`}>{formatarReal(valor)}</p>
+      {explica && <p className="text-xs text-texto-fraco">{explica}</p>}
+    </div>
+  );
+}
+
 export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) {
   await exigirSessao();
 
@@ -24,7 +57,14 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
   const atual = mesAtual();
   const mes = typeof m === "string" && /^\d{4}-\d{2}$/.test(m) ? m : atual;
 
-  const r = await relatorioDoMes(mes);
+  const { trabalho, caixa, atendimentos } = await relatorioDoMes(mes);
+
+  // O rótulo de "Seu no mês" nomeia tudo o que foi descontado. Um rótulo que
+  // omite uma parcela da conta é o que fazia o número parecer errado antes.
+  const descontos = [
+    trabalho.repasses > 0 && "repasses",
+    ESTOQUE_ATIVO && trabalho.custoProdutos > 0 && "produtos",
+  ].filter((x): x is string => typeof x === "string");
 
   return (
     <>
@@ -33,13 +73,13 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
           {nomeDoMes(mes)}
         </h1>
         <p className="mt-0.5 text-sm text-texto-fraco">
-          {r.quantos === 0
-            ? "Nenhum atendimento neste mês"
-            : `${r.quantos} atendimento${r.quantos > 1 ? "s" : ""}, ${r.quantosConcluidos} concluído${r.quantosConcluidos === 1 ? "" : "s"}`}
+          {trabalho.quantos === 0
+            ? "Nenhum atendimento fechado neste mês"
+            : `${trabalho.quantos} atendimento${trabalho.quantos > 1 ? "s" : ""}, ${trabalho.quantosConcluidos} concluído${trabalho.quantosConcluidos === 1 ? "" : "s"}`}
         </p>
       </div>
 
-      <nav className="mb-6 flex items-center gap-2">
+      <nav className="mb-8 flex items-center gap-2">
         <Link
           href={`/financeiro?m=${deslocarMes(mes, -1)}`}
           className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
@@ -62,106 +102,216 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
         </Link>
       </nav>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        <Cartao className="p-5">
-          <p className="text-sm font-medium text-texto-suave">Entrou no mês</p>
-          <p className="mt-1 text-2xl font-semibold text-positivo">{formatarReal(r.recebidoNoMes)}</p>
-          <p className="text-xs text-texto-fraco">pela data do pagamento</p>
-        </Cartao>
-        {ESTOQUE_ATIVO && (
-          <>
-            <Cartao className="p-5">
-              <p className="text-sm font-medium text-texto-suave">Produtos usados</p>
-              <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.custoProdutos)}</p>
-              <p className="text-xs text-texto-fraco">só dos concluídos</p>
-            </Cartao>
-            <Cartao className="p-5">
-              <p className="text-sm font-medium text-texto-suave">Sobrou</p>
-              <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
-                {formatarReal(r.sobra)}
-              </p>
-              <p className="text-xs text-texto-fraco">entrou menos produtos</p>
-            </Cartao>
-          </>
-        )}
-        {r.repasses > 0 && (
-          <Cartao className="p-5">
-            <p className="text-sm font-medium text-texto-suave">Repasses</p>
-            <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.repasses)}</p>
-            <p className="text-xs text-texto-fraco">às parceiras</p>
-          </Cartao>
-        )}
-        {r.repasses > 0 && (
-          <Cartao className="p-5">
-            <p className="text-sm font-medium text-texto-suave">Ficou com você</p>
-            <p className={`mt-1 text-2xl font-semibold ${r.sobra >= 0 ? "text-positivo" : "text-perigo"}`}>
-              {formatarReal(r.sobra)}
-            </p>
-            {/* Diz a conta inteira: um desconto que a tela não explica é o
-                que faz o número parecer errado. */}
-            <p className="text-xs text-texto-fraco">
-              {ESTOQUE_ATIVO ? "entrou menos repasses e produtos" : "entrou menos repasses"}
-            </p>
-          </Cartao>
-        )}
-        <Cartao className="p-5">
-          <p className="text-sm font-medium text-texto-suave">Total do mês</p>
-          <p className="mt-1 text-2xl font-semibold text-texto">{formatarReal(r.combinado)}</p>
-          <p className="text-xs text-texto-fraco">combinado nos atendimentos</p>
-        </Cartao>
-        <Cartao className="p-5">
-          <p className="text-sm font-medium text-texto-suave">Ainda a receber</p>
-          <p className={`mt-1 text-2xl font-semibold ${r.aReceber > 0 ? "text-atencao" : "text-texto-fraco"}`}>
-            {formatarReal(r.aReceber)}
+      {/* ───────────────── Bloco 1: o trabalho do mês ───────────────── */}
+
+      <section className="mb-10">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto">
+            Trabalho de {nomeDoMes(mes).replace(/ de \d{4}$/, "")}
+          </h2>
+          <p className="mt-0.5 text-xs text-texto-fraco">
+            Os atendimentos marcados neste mês, não importa quando foram pagos.
           </p>
-          <p className="text-xs text-texto-fraco">dos atendimentos do mês</p>
-        </Cartao>
-      </div>
+        </div>
 
-      {r.porForma.length > 0 && (
-        <Cartao className="mb-6 p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
-            Como entrou
-          </h2>
-          <div className="flex flex-wrap gap-x-8 gap-y-2">
-            {r.porForma.map(([forma, valor]) => (
-              <div key={forma}>
-                <p className="text-xs text-texto-fraco">
-                  {ROTULO_FORMA[forma as keyof typeof ROTULO_FORMA]}
-                </p>
-                <p className="text-lg font-semibold text-texto">{formatarReal(valor)}</p>
-              </div>
-            ))}
+        {trabalho.quantos === 0 ? (
+          <Cartao className="px-5 py-8 text-center">
+            <p className="text-sm text-texto-fraco">Nenhum atendimento fechado neste mês.</p>
+          </Cartao>
+        ) : (
+          <Cartao className="space-y-5 p-5">
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Numero
+                rotulo="Combinado no mês"
+                valor={trabalho.combinado}
+                explica="serviços e taxas de deslocamento"
+              />
+              {trabalho.repasses > 0 && (
+                <Numero
+                  rotulo="Repasses"
+                  valor={trabalho.repasses}
+                  explica="às parceiras, de todo atendimento do mês"
+                />
+              )}
+              {ESTOQUE_ATIVO && trabalho.custoProdutos > 0 && (
+                <Numero
+                  rotulo="Produtos usados"
+                  valor={trabalho.custoProdutos}
+                  explica="só dos concluídos"
+                />
+              )}
+              <Numero
+                rotulo="Seu no mês"
+                valor={trabalho.seu}
+                explica={
+                  descontos.length > 0
+                    ? `combinado menos ${descontos.join(" e ")}`
+                    : "nada a descontar neste mês"
+                }
+                tom={trabalho.seu >= 0 ? "bom" : "atencao"}
+                destaque
+              />
+            </div>
+
+            <div className="grid gap-5 border-t border-borda-suave pt-5 sm:grid-cols-2">
+              <Numero
+                rotulo="Já recebido"
+                valor={trabalho.recebido}
+                explica={
+                  trabalho.recebido > trabalho.combinado
+                    ? `inclui ${formatarReal(trabalho.recebido - trabalho.combinado)} além do combinado`
+                    : "destes atendimentos, em qualquer data"
+                }
+              />
+              <Numero
+                rotulo="Ainda a receber"
+                valor={trabalho.aReceber}
+                explica="destes atendimentos"
+                tom={trabalho.aReceber > 0 ? "atencao" : "fraco"}
+              />
+            </div>
+          </Cartao>
+        )}
+
+        {(trabalho.preAgendados.quantos > 0 || trabalho.naoAconteceram.quantos > 0) && (
+          <div className="mt-3 space-y-1.5">
+            {trabalho.preAgendados.quantos > 0 && (
+              <p className="text-xs text-texto-fraco">
+                Fora da conta: {trabalho.preAgendados.quantos} pré-agendamento
+                {trabalho.preAgendados.quantos > 1 ? "s" : ""} somando{" "}
+                {formatarReal(trabalho.preAgendados.valor)} — entram quando o sinal for pago.
+              </p>
+            )}
+            {trabalho.naoAconteceram.quantos > 0 && (
+              <p className="text-xs text-texto-fraco">
+                Fora da conta: {trabalho.naoAconteceram.quantos} cancelado ou falta
+                {trabalho.naoAconteceram.retido > 0 &&
+                  `, com ${formatarReal(trabalho.naoAconteceram.retido)} que ficaram com você`}
+                .
+              </p>
+            )}
           </div>
-        </Cartao>
-      )}
+        )}
 
-      {r.porServico.length > 0 && (
-        <Cartao className="mb-6 p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
-            Por serviço
+        {trabalho.porServico.length > 0 && (
+          <Cartao className="mt-4 p-5">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-texto-fraco">
+              Por serviço
+            </h3>
+            <ul className="space-y-2 text-sm">
+              {trabalho.porServico.map((s) => (
+                <li key={s.nome} className="flex items-baseline justify-between gap-4">
+                  <span className="text-texto">
+                    {s.nome} <span className="text-texto-fraco">× {s.quantos}</span>
+                  </span>
+                  <span className="font-medium text-texto-suave">{formatarReal(s.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </Cartao>
+        )}
+      </section>
+
+      {/* ───────────────── Bloco 2: o dinheiro do mês ───────────────── */}
+
+      <section className="mb-10">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto">
+            Dinheiro que entrou em {nomeDoMes(mes).replace(/ de \d{4}$/, "")}
           </h2>
-          <ul className="space-y-2 text-sm">
-            {r.porServico.map((s) => (
-              <li key={s.nome} className="flex items-baseline justify-between gap-4">
-                <span className="text-texto">
-                  {s.nome} <span className="text-texto-fraco">× {s.quantos}</span>
-                </span>
-                <span className="font-medium text-texto-suave">{formatarReal(s.total)}</span>
-              </li>
-            ))}
-          </ul>
-        </Cartao>
-      )}
+          <p className="mt-0.5 text-xs text-texto-fraco">
+            Conta diferente da de cima, e de propósito: aqui vale a data do pagamento. Os dois
+            números não se somam nem se subtraem.
+          </p>
+        </div>
+
+        {caixa.entrou === 0 ? (
+          <Cartao className="px-5 py-8 text-center">
+            <p className="text-sm text-texto-fraco">Nenhum pagamento recebido neste mês.</p>
+          </Cartao>
+        ) : (
+          <Cartao className="space-y-5 p-5">
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Numero rotulo="Entrou no mês" valor={caixa.entrou} tom="bom" destaque />
+              <Numero
+                rotulo="De atendimento deste mês"
+                valor={caixa.doProprioMes}
+                explica="também aparece no bloco de cima"
+              />
+              {caixa.deOutrosMeses !== 0 && (
+                <Numero
+                  rotulo="De outro mês"
+                  valor={caixa.deOutrosMeses}
+                  explica="sinal de festa futura, ou parcela de festa já passada"
+                />
+              )}
+            </div>
+
+            {caixa.porForma.length > 0 && (
+              <div className="border-t border-borda-suave pt-5">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-texto-fraco">
+                  Como entrou
+                </h3>
+                <div className="flex flex-wrap gap-x-8 gap-y-2">
+                  {caixa.porForma.map(([forma, valor]) => (
+                    <div key={forma}>
+                      <p className="text-xs text-texto-fraco">
+                        {ROTULO_FORMA[forma as keyof typeof ROTULO_FORMA]}
+                      </p>
+                      <p className="text-lg font-semibold text-texto">{formatarReal(valor)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Cartao>
+        )}
+
+        {caixa.entradas.length > 0 && (
+          <Cartao className="mt-4 divide-y divide-borda-suave">
+            {caixa.entradas.map((p) => {
+              const doMes = p.doMesDoRelatorio;
+              return (
+                <Link
+                  key={p.id}
+                  href={`/agenda/${p.agendamento.id}`}
+                  className="flex items-center gap-4 px-5 py-2.5 text-sm transition hover:bg-superficie-suave"
+                >
+                  <span className="w-16 shrink-0 font-mono text-xs text-texto-fraco">
+                    {dataCurta(p.pagoEm)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-texto">
+                    {p.agendamento.cliente.nome}
+                    <span className="text-texto-fraco">
+                      {" "}· {ROTULO_FORMA[p.forma]}
+                      {/* Sem isto, um pagamento de festa futura parece um erro
+                          no meio da lista do mês. */}
+                      {!doMes && ` · atendimento ${dataCurta(p.agendamento.inicio)}`}
+                    </span>
+                  </span>
+                  <span
+                    className={`font-mono font-medium ${p.valorCentavos < 0 ? "text-perigo" : "text-positivo"}`}
+                  >
+                    {p.valorCentavos < 0 ? "" : "+"}
+                    {formatarReal(p.valorCentavos)}
+                  </span>
+                </Link>
+              );
+            })}
+          </Cartao>
+        )}
+      </section>
+
+      {/* ───────────────── A lista do mês ───────────────── */}
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
         Atendimentos do mês
       </h2>
-      {r.atendimentos.length === 0 ? (
+      {atendimentos.length === 0 ? (
         <Vazio titulo="Mês sem movimento" descricao="Nenhum atendimento marcado neste período." />
       ) : (
         <Cartao className="mb-8 divide-y divide-borda-suave">
-          {r.atendimentos.map(({ atendimento: a, conta }) => (
+          {atendimentos.map(({ atendimento: a, conta }) => (
             <Link
               key={a.id}
               href={`/agenda/${a.id}`}
@@ -186,35 +336,6 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
             </Link>
           ))}
         </Cartao>
-      )}
-
-      {r.entradas.length > 0 && (
-        <>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto-fraco">
-            Recebimentos do mês
-          </h2>
-          <Cartao className="divide-y divide-borda-suave">
-            {r.entradas.map((p) => (
-              <div key={p.id} className="flex items-center gap-4 px-5 py-2.5 text-sm">
-                <span className="w-16 shrink-0 font-mono text-xs text-texto-fraco">
-                  {dataCurta(p.pagoEm)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-texto">
-                  {p.agendamento.cliente.nome}
-                  <span className="text-texto-fraco">
-                    {" "}· {ROTULO_FORMA[p.forma]}
-                  </span>
-                </span>
-                <span
-                  className={`font-mono font-medium ${p.valorCentavos < 0 ? "text-perigo" : "text-positivo"}`}
-                >
-                  {p.valorCentavos < 0 ? "" : "+"}
-                  {formatarReal(p.valorCentavos)}
-                </span>
-              </div>
-            ))}
-          </Cartao>
-        </>
       )}
     </>
   );

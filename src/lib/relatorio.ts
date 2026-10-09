@@ -5,20 +5,31 @@ import { resumoFinanceiro } from "./financeiro";
 import { ESTOQUE_ATIVO } from "./recursos";
 
 /**
- * Relatório do mês.
+ * Relatório do mês, em duas contas que nunca se somam.
  *
- * Duas contas diferentes convivem aqui de propósito, porque respondem a
- * perguntas diferentes:
+ *   TRABALHO — pela data do atendimento. "O que eu fiz em setembro, quanto
+ *              disso é meu depois das parceiras, quanto já recebi e quanto
+ *              ainda vou receber."
  *
- *   ENTRADAS  — pela data do pagamento. "Quanto dinheiro entrou em setembro?"
- *               Um sinal recebido em agosto de um casamento em outubro conta
- *               em agosto, que é quando ele apareceu na conta.
+ *   CAIXA    — pela data do pagamento. "Quanto dinheiro entrou em setembro",
+ *              venha de qual atendimento vier.
  *
- *   ATENDIMENTOS — pela data do atendimento. "Quanto trabalhei em setembro,
- *               quanto disso já recebi e quanto ainda vou receber?"
+ * As duas são necessárias porque quase metade dos pagamentos pertence a um mês
+ * diferente do atendimento: noiva paga parcelado meses antes da festa.
  *
- * Misturar as duas é o jeito clássico de um relatório mentir.
+ * O que elas NÃO podem é se misturar numa terceira. A versão anterior fazia
+ * "entrou no mês menos repasses do mês", com o primeiro termo pela data do
+ * pagamento e o segundo pela data do atendimento. Isso produzia novembro com
+ * -R$ 180,00: nenhum pagamento caiu em novembro, mas havia um atendimento de
+ * novembro com repasse. Por isso aqui não existe nenhum campo que atravesse os
+ * dois blocos.
  */
+
+/** O trabalho está fechado: entra na conta do mês. */
+const CONTA_COMO_TRABALHO = ["PENDENTE", "CONFIRMADO", "CONCLUIDO"] as const;
+
+/** Não aconteceu. Fica fora da conta, mas o dinheiro retido é mostrado. */
+const NAO_ACONTECEU = ["CANCELADO", "FALTOU"] as const;
 
 export function limitesDoMes(mes: string): { inicio: Date; fim: Date } {
   const [ano, m] = mes.split("-").map(Number);
@@ -43,7 +54,12 @@ export async function relatorioDoMes(mes: string) {
   const [entradas, atendimentos] = await Promise.all([
     prisma.pagamento.findMany({
       where: { pagoEm: { gte: inicio, lt: fim } },
-      include: { agendamento: { include: { cliente: { select: { nome: true } } } } },
+      include: {
+        agendamento: {
+          // `inicio` entra para separar o que é deste mês do que veio de outro.
+          select: { id: true, inicio: true, cliente: { select: { nome: true } } },
+        },
+      },
       orderBy: { pagoEm: "desc" },
     }),
     prisma.agendamento.findMany({
@@ -58,12 +74,22 @@ export async function relatorioDoMes(mes: string) {
     }),
   ]);
 
-  const recebidoNoMes = entradas.reduce((t, p) => t + p.valorCentavos, 0);
+  /* ────────────── CAIXA: pela data do pagamento ────────────── */
+
+  const entrou = entradas.reduce((t, p) => t + p.valorCentavos, 0);
+
+  // De quem é esse dinheiro: do trabalho deste mês ou de festa de outro mês.
+  // É a linha que explica "entrou R$ 4.101 num mês de R$ 2.000 de trabalho".
+  const doProprioMes = entradas
+    .filter((p) => p.agendamento.inicio >= inicio && p.agendamento.inicio < fim)
+    .reduce((t, p) => t + p.valorCentavos, 0);
 
   const porForma = new Map<string, number>();
   for (const p of entradas) {
     porForma.set(p.forma, (porForma.get(p.forma) ?? 0) + p.valorCentavos);
   }
+
+  /* ────────────── TRABALHO: pela data do atendimento ────────────── */
 
   const contas = atendimentos.map((a) => ({
     atendimento: a,
@@ -78,8 +104,21 @@ export async function relatorioDoMes(mes: string) {
     }),
   }));
 
-  const valem = contas.filter((c) => c.atendimento.status !== "CANCELADO");
+  const valem = contas.filter((c) =>
+    (CONTA_COMO_TRABALHO as readonly string[]).includes(c.atendimento.status),
+  );
   const concluidos = contas.filter((c) => c.atendimento.status === "CONCLUIDO");
+
+  // Pré-agendamento é conversa: pela sua regra, só vira agendamento quando o
+  // sinal é pago. Somá-lo ao total do mês seria contar como receita uma data
+  // que ainda pode não acontecer — em fevereiro/27 eram R$ 360 de R$ 1.260.
+  const preAgendados = contas.filter((c) => c.atendimento.status === "PRE_AGENDAMENTO");
+
+  // Não aconteceu, mas pode ter dinheiro que ficou: cancelou, o sinal fica.
+  // Mostrado à parte para a receita não desaparecer da tela do trabalho.
+  const naoAconteceram = contas.filter((c) =>
+    (NAO_ACONTECEU as readonly string[]).includes(c.atendimento.status),
+  );
 
   // Produtos saíram do app por sua decisão, porque o gasto é difícil de
   // dimensionar. Então o custo deles também sai da conta do mês: do contrário o
@@ -92,12 +131,14 @@ export async function relatorioDoMes(mes: string) {
     ? concluidos.reduce((t, c) => (c.conta.custoEhEstimativa ? t : t + c.conta.custoProdutos), 0)
     : 0;
 
-  // Repasse às parceiras: dinheiro que entra e sai. Conta a partir do que foi
-  // recebido, não do combinado — repassar o que ainda não entrou seria mentira.
-  const repasses = valem.reduce(
-    (t, c) => (c.conta.recebido > 0 ? t + c.atendimento.repasseCentavos : t),
-    0,
-  );
+  // Repasse de todo atendimento fechado do mês, pago ou não.
+  //
+  // Antes só contava se algum dinheiro já tivesse entrado, e então contava o
+  // repasse inteiro. Isso dava dois erros opostos: um atendimento pago só pelo
+  // sinal já descontava o repasse completo, e um ainda sem nada descontava
+  // zero. Como esta conta é sobre o trabalho do mês, o que importa é que a
+  // parceira fez — ou vai fazer — o serviço, e esse valor é dela.
+  const repasses = valem.reduce((t, c) => t + c.atendimento.repasseCentavos, 0);
 
   const porServico = new Map<string, { nome: string; quantos: number; total: number }>();
   for (const c of valem) {
@@ -108,25 +149,58 @@ export async function relatorioDoMes(mes: string) {
     porServico.set(s.id, atual);
   }
 
+  const combinado = valem.reduce((t, c) => t + c.conta.total, 0);
+
   return {
     mes,
-    entradas,
-    recebidoNoMes,
-    porForma: [...porForma.entries()].sort((a, b) => b[1] - a[1]),
 
+    /** Pela data do atendimento. Nada aqui usa data de pagamento. */
+    trabalho: {
+      quantos: valem.length,
+      quantosConcluidos: concluidos.length,
+
+      combinado,
+      repasses,
+      custoProdutos,
+      /** O que o trabalho deste mês vale para você. */
+      seu: combinado - repasses - custoProdutos,
+
+      /** Dos atendimentos deste mês, quanto já entrou — em qualquer data. */
+      recebido: valem.reduce((t, c) => t + c.conta.recebido, 0),
+      aReceber: valem.reduce((t, c) => t + c.conta.aReceber, 0),
+
+      porServico: [...porServico.values()].sort((a, b) => b.total - a.total),
+
+      /* Fora da conta, mas visíveis — senão parecem ter sido esquecidos. */
+      preAgendados: {
+        quantos: preAgendados.length,
+        valor: preAgendados.reduce((t, c) => t + c.conta.total, 0),
+      },
+      naoAconteceram: {
+        quantos: naoAconteceram.length,
+        retido: naoAconteceram.reduce((t, c) => t + c.conta.recebido, 0),
+      },
+    },
+
+    /** Pela data do pagamento. Nada aqui usa data de atendimento. */
+    caixa: {
+      entrou,
+      doProprioMes,
+      deOutrosMeses: entrou - doProprioMes,
+      porForma: [...porForma.entries()].sort((a, b) => b[1] - a[1]),
+
+      // A marca vem daqui, e não da tela, porque comparar mês pelo texto da
+      // data em UTC erra na virada: um atendimento às 22h de 30/09 em São Paulo
+      // é 01h de 01/10 em UTC, e seria contado no mês errado. Os limites já são
+      // instantes calculados a partir do fuso certo.
+      entradas: entradas.map((p) => ({
+        ...p,
+        doMesDoRelatorio: p.agendamento.inicio >= inicio && p.agendamento.inicio < fim,
+      })),
+    },
+
+    /** A lista do mês, incluindo pré-agendamento e cancelado. */
     atendimentos: contas,
-    quantos: valem.length,
-    quantosConcluidos: concluidos.length,
-    quantosCancelados: contas.length - valem.length,
-
-    combinado: valem.reduce((t, c) => t + c.conta.total, 0),
-    aReceber: valem.reduce((t, c) => t + c.conta.aReceber, 0),
-    custoProdutos,
-    repasses,
-    /** O que sobrou do que entrou, depois de produtos e repasses. */
-    sobra: recebidoNoMes - custoProdutos - repasses,
-
-    porServico: [...porServico.values()].sort((a, b) => b.total - a.total),
   };
 }
 
