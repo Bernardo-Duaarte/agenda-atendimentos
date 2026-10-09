@@ -236,7 +236,14 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
               <Numero
                 rotulo="De atendimento deste mês"
                 valor={caixa.doProprioMes}
-                explica="também aparece no bloco de cima"
+                // Diz que é um pedaço do "já recebido" lá em cima. Sem isso, a
+                // diferença entre os dois parece erro — quando é só a parte
+                // que foi paga em outro mês.
+                explica={
+                  caixa.doProprioMes < trabalho.recebido
+                    ? `parte dos ${formatarReal(trabalho.recebido)} recebidos acima; o resto foi pago em outro mês`
+                    : "é o mesmo valor do “já recebido” acima"
+                }
               />
               {caixa.deOutrosMeses !== 0 && (
                 <Numero
