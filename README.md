@@ -1,97 +1,138 @@
 # Agenda
 
-Sistema de agenda, clientes e estoque para atendimento de maquiagem — estúdio e
-domicílio. Uso pessoal, uma pessoa só.
+**English** · [Português](README.pt-BR.md)
 
-## Como rodar
+Scheduling, client and finance app for a freelance makeup artist who works both
+at her studio and at clients' homes. Built and maintained as a personal project
+and in production use by a real business. Single user: the business owner.
 
-Precisa de Node 22 ou mais novo.
+The UI and the code identifiers are in Portuguese, because that is the language
+of the person who uses it every day.
+
+<!-- Screenshots: add 2–3 images here, using fictional client data only. -->
+
+## What it does
+
+- **Appointments that account for travel.** A home visit blocks the calendar
+  from `start − travel there` to `end + travel back`, not just the service
+  time, so back-to-back bookings across town can't overlap.
+- **Automatic travel fee.** Distance and drive time come from the Google
+  Routes API (traffic-aware). The fee uses a base + per-km + per-minute
+  formula calibrated against real ride-hailing prices.
+- **Off-hours pricing.** Services starting outside the configured working
+  window are priced differently. The same pricing function runs in the browser
+  for instant feedback and on the server, where the result is final.
+- **Deposits and payments.** A deposit confirms a booking. Payments can be
+  split across months (brides often pay in installments), and a cancelled
+  booking keeps its deposit.
+- **Monthly report with two separate views.** *Work* (by appointment date:
+  what was done, what was earned after partner payouts, what is still owed)
+  and *Cash* (by payment date: what actually came in). They are never mixed.
+- **Partner professionals.** Appointments can include partners, with their
+  share deducted from the owner's earnings.
+- **Conflict alerts from her personal iPhone calendar.** The app reads her
+  published iCloud calendar (read-only) and warns before booking over a
+  personal event.
+- **Calendar feed for the iPhone.** Appointments are published as a
+  subscribable calendar behind a long random token.
+- **Client import from phone contacts.** vCard upload with phone
+  normalization to E.164, deduplication and batch limits.
+- **WhatsApp messages without an API.** `wa.me` links open WhatsApp with the
+  message already written. No cost, no Meta verification and no risk of the
+  business number being banned.
+- **Product inventory (currently switched off).** Built and kept behind a
+  feature flag: estimating per-service product usage turned out too imprecise,
+  and a bad estimate would corrupt cost and profit numbers. Data is kept.
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 (App Router, Server Actions), React 19, TypeScript |
+| Database | PostgreSQL on Supabase, Prisma 7 ORM with migrations |
+| Styling | Tailwind CSS 4, light and dark themes |
+| Hosting | Vercel (São Paulo region), daily cron job |
+| External APIs | Google Routes API, iCloud published calendars (ICS) |
+
+## Design decisions
+
+- **Money is always an integer number of cents.** Never floating point: in a
+  revenue report, `0.1 + 0.2 ≠ 0.3` becomes missing cents.
+- **Stock is a sum, not a field.** A product's balance is the sum of its
+  movements, so the number can always be explained by its history.
+- **Product cost is per unit, derived from the purchase.** "35 ml bottle for
+  R$ 229" is divided automatically, so 4 ml of foundation never costs a whole
+  bottle.
+- **Dates are stored in UTC.** Conversion to São Paulo time happens only at
+  display, in a single module (`src/lib/tempo.ts`).
+- **Business rules live in plain modules.** Pricing, travel fees, finance,
+  reports and contact import are pure functions in `src/lib`, separate from
+  database and session code, so the rules that can go wrong are easy to check.
+
+## Security
+
+- **Verified TLS to the database**, with Supabase's CA pinned in code. Without
+  it the driver connects in plain text.
+- **Single-password login** with a signed session cookie (`httpOnly`,
+  `secure`, `sameSite=lax`), valid for 30 days.
+- **Auth checked on every page and every Server Action.** Server Actions are
+  real POST endpoints, reachable without going through a page or layout.
+- **Login rate limiting stored in the database**, not in memory: on serverless,
+  each instance would otherwise keep its own counter.
+- **Supabase's public API is closed.** `anon` and `authenticated` permissions
+  are revoked and Row Level Security is on with no policies.
+- **The database enforces what the code checks.** `CHECK` constraints reject
+  negative prices, appointments that end before they start and stock movements
+  with the wrong sign.
+- **API keys stay on the server.** The Google Maps key is only used inside
+  Server Actions, never shipped to the browser.
+
+## Running locally
+
+Requires Node 22 or newer and a PostgreSQL database (Supabase was used in
+production).
 
 ```bash
 npm install
-cp .env.example .env    # e preencha (veja abaixo)
-npm run db:migrate      # cria as tabelas
-npm run db:seed         # opcional: serviços e produtos de exemplo
+cp .env.example .env    # then fill it in (see below)
+npm run db:migrate      # creates the tables
+npm run db:seed         # optional: sample services and products
 npm run dev             # http://localhost:3000
 ```
 
-## Variáveis de ambiente
+### Environment variables
 
-Todas ficam no `.env`, que **nunca** vai para o Git.
-
-| Variável | Para que serve |
+| Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Conexão que o app usa. Supabase, pooler na porta **6543**. |
-| `DIRECT_URL` | Conexão das migrations. Mesmo banco, porta **5432**. |
-| `SENHA_ACESSO` | A senha com que você entra. Mínimo 8 caracteres. |
-| `SESSION_SECRET` | Assina o cookie de sessão. Trocar desloga todo mundo. |
-| `CRON_SECRET` | Protege a rota que mantém o banco acordado. |
-| `CALENDAR_TOKEN` | Reservado para a assinatura da agenda no celular (ainda não usado). |
+| `DATABASE_URL` | Connection used by the app (Supabase transaction pooler, port 6543) |
+| `DIRECT_URL` | Connection used by migrations (session pooler, port 5432) |
+| `SENHA_ACESSO` | Login password, at least 8 characters |
+| `SESSION_SECRET` | Signs the session cookie; changing it logs everyone out |
+| `CALENDAR_TOKEN` | Protects the calendar feed URL; treat it as a password |
+| `CRON_SECRET` | Protects the daily keep-alive route |
+| `GOOGLE_MAPS_API_KEY` | Optional. Enables travel distance, time and fee; without it those fields are manual |
 
-Para gerar um segredo aleatório:
+Generate a random secret with:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-## Comandos
+### Scripts
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `npm run dev` | Sobe em desenvolvimento |
-| `npm run build` | Compila para produção |
-| `npm run db:migrate` | Cria/aplica migrations (e regenera o client) |
-| `npm run db:deploy` | Aplica migrations sem criar novas (produção) |
-| `npm run db:seed` | Insere os dados de exemplo |
-| `npm run db:studio` | Abre o navegador de tabelas do Prisma |
-| `npm run lint` | Verifica o código |
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run db:migrate` | Create and apply migrations |
+| `npm run db:deploy` | Apply existing migrations (production) |
+| `npm run db:seed` | Insert sample data |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run lint` | Lint the code |
 
-## Decisões que valem saber
+## Deployment
 
-**Dinheiro é sempre inteiro, em centavos.** Nunca `Float` — em ponto flutuante
-`0,1 + 0,2` não dá `0,3`, e num relatório de faturamento isso vira centavo
-sumido.
-
-**Estoque não é um campo, é uma soma.** O saldo de um produto é a soma dos
-movimentos dele. Custa uma consulta a mais e garante que sempre dá para
-responder *por que* a base acabou.
-
-**Custo de produto é por unidade, derivado da compra.** Você cadastra "frasco
-de 35 ml por R$ 229" e o sistema divide. Guardar o preço do frasco faria 4 ml de
-base custarem um frasco inteiro.
-
-**Datas são gravadas em UTC.** A conversão para São Paulo acontece só na
-exibição, em `src/lib/tempo.ts`, que é a única fronteira de fuso do projeto.
-
-**A agenda considera o deslocamento.** Um atendimento ocupa de
-`início − ida` até `fim + volta`, não apenas `início`–`fim`.
-
-## Segurança
-
-- **TLS verificado** até o banco, com a CA do Supabase fixada em
-  `src/lib/supabase-ca.ts`. Sem isso o driver conecta em texto claro.
-- **Login com senha única**, sessão em cookie assinado (`httpOnly`, `secure`,
-  `sameSite=lax`), válida por 30 dias.
-- **Verificação em cada página e em cada Server Action.** Server Actions são
-  endpoints POST reais, alcançáveis sem passar por página ou layout — checar só
-  no proxy ou no layout deixaria buraco.
-- **Limite de tentativas gravado no banco**, não em memória: em ambiente
-  serverless cada instância teria o próprio contador.
-- **A API pública do Supabase está fechada** — permissões de `anon` e
-  `authenticated` revogadas, RLS ligado sem política em todas as tabelas.
-  Não crie políticas nem desligue o RLS pelo painel.
-- **O banco valida o que o código valida.** Restrições `CHECK` recusam preço
-  negativo, atendimento que termina antes de começar e baixa de estoque com
-  sinal invertido.
-
-> ⚠️ O Prisma **ignora** os parâmetros de SSL nas migrations (testado: até
-> `sslmode=disable` e uma CA falsa conectam). Mantenha **Enforce SSL** ligado no
-> painel do Supabase — é o servidor que fecha esse caminho, não o cliente.
-
-## Publicação
-
-Hospedado na Vercel. O `vercel.json` fixa a região em São Paulo (`gru1`), perto
-do banco, e agenda uma visita diária a `/api/manter-acordado` — o plano
-gratuito do Supabase pausa o projeto após 7 dias sem acesso.
-
-As variáveis do `.env` precisam ser cadastradas também no painel da Vercel.
+Hosted on Vercel. `vercel.json` pins the region to São Paulo (`gru1`), next to
+the database, and schedules a daily request to `/api/manter-acordado`, because
+Supabase's free tier pauses a project after 7 days without activity. The
+variables from `.env` must also be set in the Vercel dashboard.
