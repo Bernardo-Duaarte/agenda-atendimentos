@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type TouchEvent } from "react";
 import Link from "next/link";
 import { filtrarClientes } from "@/lib/busca";
 import { formatarTelefone } from "@/lib/whatsapp";
@@ -53,6 +53,48 @@ export function SeletorCliente({
     onEscolher(id);
     setBusca("");
     setAberto(false);
+  }
+
+  /**
+   * Escolher no toque, e não no clique.
+   *
+   * No celular, tocar num nome tira o foco do campo de busca, o teclado fecha e
+   * a página se reorganiza para ocupar o espaço dele. Isso acontece ANTES de o
+   * dedo levantar, então o nome sai de baixo do dedo — e o navegador só dispara
+   * o clique se o dedo subir sobre o mesmo elemento onde desceu. O toque se
+   * perdia, e nada era selecionado. No computador não há teclado para fechar,
+   * por isso lá sempre funcionou.
+   *
+   * Resolvendo em `touchend` a escolha acontece antes de qualquer movimento.
+   * O `preventDefault` cancela o clique sintetizado que viria depois; se o
+   * navegador ignorar o cancelamento, `escolher` roda duas vezes com o mesmo
+   * id, o que não muda nada.
+   */
+  const toqueComecou = useRef<{ x: number; y: number } | null>(null);
+  const TOLERANCIA_PX = 10;
+
+  function aoComecarToque(e: TouchEvent) {
+    const t = e.touches[0];
+    toqueComecou.current = t ? { x: t.clientX, y: t.clientY } : null;
+  }
+
+  function aoTerminarToque(e: TouchEvent, id: string) {
+    const comeco = toqueComecou.current;
+    toqueComecou.current = null;
+
+    const t = e.changedTouches[0];
+    if (!comeco || !t) return;
+
+    // Arrastar o dedo para rolar a lista não é escolher.
+    if (
+      Math.abs(t.clientX - comeco.x) > TOLERANCIA_PX ||
+      Math.abs(t.clientY - comeco.y) > TOLERANCIA_PX
+    ) {
+      return;
+    }
+
+    e.preventDefault();
+    escolher(id);
   }
 
   // Já escolhida: mostra quem é e sai da frente. Trocar é um clique.
@@ -124,7 +166,10 @@ export function SeletorCliente({
             </p>
             <Link
               href={`/clientes/novo?${new URLSearchParams({ nome: busca.trim() })}`}
-              className="mt-2 inline-flex items-center rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-marca transition hover:bg-superficie-suave"
+              // Mesmo motivo dos nomes da lista: sem isto o campo perde o foco,
+              // o teclado fecha, a página se mexe e o toque erra o alvo.
+              onMouseDown={(e) => e.preventDefault()}
+              className="mt-2 inline-flex items-center touch-manipulation rounded-lg border border-borda px-4 py-2.5 text-sm font-medium text-marca transition hover:bg-superficie-suave"
             >
               Cadastrar {busca.trim() ? `“${busca.trim()}”` : "uma cliente"}
             </Link>
@@ -135,8 +180,14 @@ export function SeletorCliente({
               <li key={c.id}>
                 <button
                   type="button"
+                  // No celular, resolve no toque. Ver `aoTerminarToque`.
+                  onTouchStart={aoComecarToque}
+                  onTouchEnd={(e) => aoTerminarToque(e, c.id)}
+                  // No computador, impede o campo de perder o foco ao apertar o
+                  // botão. Sem isto o teclado do iPad também fecharia aqui.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => escolher(c.id)}
-                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-superficie-suave ${
+                  className={`flex w-full touch-manipulation items-center gap-3 px-3 py-3 text-left transition hover:bg-superficie-suave ${
                     c.id === valor ? "bg-superficie-suave" : ""
                   }`}
                 >
