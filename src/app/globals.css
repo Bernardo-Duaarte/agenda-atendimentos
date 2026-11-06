@@ -16,59 +16,73 @@
  * ilegível em vez de degradar. Não vale o risco numa ferramenta de trabalho.
  */
 
+/**
+ * As cores vêm da própria foto do retrato, amostradas dela:
+ *
+ *   cabelo escuro  #171310   -> os fundos do tema escuro
+ *   bege do fundo  #c3b99e   -> o calor dos cinzas no tema claro
+ *   batom          #902423   -> a cor de marca e a dos botões
+ *
+ * Foi assim para a foto no fundo não parecer colada por cima de um app de
+ * outra cor. Todos os pares texto/fundo foram conferidos em contraste WCAG:
+ * o pior caso é 4,67 no claro e 5,59 no escuro, acima do mínimo de 4,5.
+ */
+
 :root {
   /* --- valores do tema escuro --- */
-  --e-fundo: #09090b;
-  --e-superficie: #18181b;
-  --e-superficie-suave: #27272a;
-  --e-campo: #101012;
-  --e-borda: #2f2f35;
-  --e-borda-suave: #27272a;
-  --e-texto: #f4f4f5;
-  --e-texto-suave: #a1a1aa;
-  --e-texto-fraco: #9b9ba4;
-  --e-marca: #fda4af;
-  --e-marca-anel: #4c0519;
-  --e-acao: #e11d48;
-  --e-acao-forte: #f43f5e;
-  --e-acao-fraca: #7f1d3a;
-  --e-perigo: #fb7185;
-  --e-perigo-fundo: #2a0a13;
-  --e-perigo-borda: #7f1d3a;
-  --e-perigo-texto: #fda4af;
-  --e-atencao: #fbbf24;
-  --e-atencao-fundo: #2e1e05;
-  --e-atencao-texto: #fcd34d;
-  --e-positivo: #34d399;
-  --e-positivo-fundo: #052e22;
-  --e-positivo-texto: #6ee7b7;
+  --e-fundo: #141110;
+  --e-superficie: #1f1a17;
+  --e-superficie-suave: #2b2420;
+  --e-campo: #171310;
+  --e-borda: #3a2f29;
+  --e-borda-suave: #2b2420;
+  --e-texto: #f6f1ea;
+  --e-texto-suave: #c3b3a6;
+  --e-texto-fraco: #a89a90;
+  --e-marca: #e8a79c;
+  --e-marca-anel: #5a1f1a;
+  /* Mais aceso que o batom: no escuro, o tom original do batom não se
+     destacava o bastante do cartão (2,49 de contraste, mínimo 3). */
+  --e-acao: #cb3c2f;
+  --e-acao-forte: #d9483a;
+  --e-acao-fraca: #6b241e;
+  --e-perigo: #f08a84;
+  --e-perigo-fundo: #2d1311;
+  --e-perigo-borda: #6b241e;
+  --e-perigo-texto: #f3a9a3;
+  --e-atencao: #f5c15c;
+  --e-atencao-fundo: #2e2208;
+  --e-atencao-texto: #f7cf80;
+  --e-positivo: #6fd8a8;
+  --e-positivo-fundo: #0a2b20;
+  --e-positivo-texto: #8fe3bd;
 
   /* --- tema claro, aplicado por padrão --- */
-  --fundo: #fafafa;
-  --superficie: #ffffff;
-  --superficie-suave: #f4f4f5;
+  --fundo: #faf6f1;
+  --superficie: #fffdfb;
+  --superficie-suave: #f3ebe2;
   --campo: #ffffff;
-  --borda: #e4e4e7;
-  --borda-suave: #f4f4f5;
-  --texto: #18181b;
-  --texto-suave: #52525b;
-  --texto-fraco: #70707a;
-  --marca: #be123c;
-  --marca-anel: #ffe4e6;
-  --acao: #e11d48;
-  --acao-forte: #be123c;
-  --acao-fraca: #fda4af;
+  --borda: #e7dbcf;
+  --borda-suave: #f1e8de;
+  --texto: #1e1816;
+  --texto-suave: #5c5048;
+  --texto-fraco: #75665c;
+  --marca: #8e1f1d;
+  --marca-anel: #f7e3df;
+  --acao: #9d2824;
+  --acao-forte: #7e1f1c;
+  --acao-fraca: #e3b4ae;
   --acao-texto: #ffffff;
-  --perigo: #e11d48;
-  --perigo-fundo: #fff1f2;
-  --perigo-borda: #fecdd3;
-  --perigo-texto: #9f1239;
-  --atencao: #a75a06;
-  --atencao-fundo: #fef3c7;
-  --atencao-texto: #92400e;
-  --positivo: #047857;
-  --positivo-fundo: #d1fae5;
-  --positivo-texto: #065f46;
+  --perigo: #b4233f;
+  --perigo-fundo: #fdf0f0;
+  --perigo-borda: #f3cfcb;
+  --perigo-texto: #8e1f1d;
+  --atencao: #8a5207;
+  --atencao-fundo: #fcf0d8;
+  --atencao-texto: #6f4206;
+  --positivo: #1c6b4f;
+  --positivo-fundo: #dcf1e6;
+  --positivo-texto: #15563f;
 
   color-scheme: light dark;
 }
@@ -170,4 +184,132 @@
 body {
   background-color: var(--fundo);
   color: var(--texto);
+}
+
+/**
+ * A foto como fundo do app.
+ *
+ * Um rosto em close atrás de uma agenda cheia de números seria bonito por dez
+ * segundos e insuportável no resto do dia. O que entra aqui é a MESMA foto já
+ * borrada no arquivo (e não por filtro do navegador, que custa caro no
+ * iPhone), tão desfocada que lê como luz e cor quentes, não como retrato.
+ *
+ * O arquivo tem 400px de largura e 3 KB justamente porque o borrão já destruiu
+ * o detalhe: ampliar por CSS não custa nada e não aparece.
+ *
+ * É um elemento fixo, e não `background-attachment: fixed`, que no iOS trava a
+ * rolagem.
+ */
+.atmosfera {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--img-atmosfera, none);
+  background-size: cover;
+  background-position: 50% 30%;
+  /* No claro a foto escureceria a página; entra bem mais discreta. */
+  opacity: 0.1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .atmosfera {
+    opacity: 0.26;
+  }
+}
+:root[data-tema="escuro"] .atmosfera {
+  opacity: 0.26;
+}
+
+/**
+ * A foto inteira na tela de entrada.
+ *
+ * É o único lugar do app sem dado nenhum na tela, então é onde o retrato cabe
+ * nítido e grande. O véu por cima existe para o formulário continuar legível
+ * sobre qualquer parte da imagem.
+ */
+/**
+ * A cor de base fica numa camada própria, e não no `<main>`.
+ *
+ * Camadas com z-index negativo são pintadas ATRÁS do fundo do elemento que as
+ * contém. Com a cor no `<main>`, a foto sumia por completo atrás dela.
+ */
+.entrada-base {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-color: #141110;
+}
+
+.entrada-foto {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: var(--img-retrato, none);
+  background-size: cover;
+  /* No celular o rosto fica em cima e o formulário embaixo. */
+  background-position: 50% 16%;
+}
+
+.entrada-veu {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgb(20 17 16 / 0.35) 0%,
+    rgb(20 17 16 / 0.5) 40%,
+    rgb(20 17 16 / 0.88) 100%
+  );
+}
+
+/**
+ * Em tela larga a foto ocupa só a coluna da direita.
+ *
+ * Ela é um retrato, de pé. Esticada numa tela deitada, o corte ampliava o
+ * rosto até virar um close desconfortável. Numa coluna estreita e alta a
+ * proporção volta a ser quase a da foto, e aparece do cabelo ao ombro.
+ */
+@media (min-width: 640px) {
+  .entrada-foto {
+    left: 38%;
+    background-position: 50% 16%;
+  }
+
+  .entrada-veu {
+    left: 38%;
+    /* Só o bastante para a emenda com a coluna escura não ser uma linha reta. */
+    background: linear-gradient(
+      90deg,
+      rgb(20 17 16 / 0.96) 0%,
+      rgb(20 17 16 / 0.45) 14%,
+      rgb(20 17 16 / 0.08) 42%,
+      rgb(20 17 16 / 0.22) 100%
+    );
+  }
+}
+
+/**
+ * Dentro do cartão de vidro é sempre escuro, mesmo no tema claro — a foto por
+ * baixo não muda de cor com o tema.
+ *
+ * Em vez de reescrever os componentes do formulário, redefinimos os tokens
+ * aqui: `Campo`, `Entrada`, `Aviso` e o botão passam a ler estas cores sem
+ * saber que estão sobre uma foto.
+ */
+.entrada-vidro {
+  --texto: #f6f1ea;
+  --texto-suave: #e2d7cd;
+  --texto-fraco: #c0b1a6;
+  --superficie: transparent;
+  --superficie-suave: rgb(255 255 255 / 0.08);
+  --campo: rgb(255 255 255 / 0.1);
+  --borda: rgb(255 255 255 / 0.22);
+  --marca-anel: rgb(232 167 156 / 0.35);
+  --acao: #cb3c2f;
+  --acao-forte: #d9483a;
+  --acao-fraca: #6b241e;
+  --perigo-fundo: rgb(107 36 30 / 0.5);
+  --perigo-borda: rgb(240 138 132 / 0.4);
+  --perigo-texto: #f3a9a3;
 }

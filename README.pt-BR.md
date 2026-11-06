@@ -37,6 +37,15 @@ Para gerar um segredo aleatório:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
+## Fotos
+
+O visual foi feito em torno de uma foto de quem usa o app, então as fotos **não
+estão neste repositório**. Cada uma vem de uma variável de ambiente
+(`NEXT_PUBLIC_IMG_ATMOSFERA`, `NEXT_PUBLIC_IMG_RETRATO`, `NEXT_PUBLIC_IMG_ROSTO`)
+com um link `https` de um armazenamento seu. Sem elas o app funciona igual, só
+com a paleta de cores e sem foto. Em desenvolvimento, pode usar um caminho como
+`/privado/retrato.webp`: a pasta `public/privado/` é ignorada pelo Git.
+
 ## Comandos
 
 | Comando | O que faz |

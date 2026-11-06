@@ -49,7 +49,7 @@ export default async function PaginaMes(props: PageProps<"/agenda/mes">) {
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold capitalize tracking-tight text-texto">
+          <h1 className="text-2xl font-semibold tracking-tight text-texto first-letter:uppercase">
             {nomeDoMes(mes)}
           </h1>
           <p className="mt-0.5 text-sm text-texto-fraco">

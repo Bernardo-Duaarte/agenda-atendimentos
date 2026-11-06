@@ -43,3 +43,6 @@ next-env.d.ts
 
 # cliente gerado pelo Prisma — recriado por `npm run db:generate`
 /src/generated
+
+# fotos do visual: de uma pessoa real, nunca no repositório (ver src/lib/imagens.ts)
+/public/privado/

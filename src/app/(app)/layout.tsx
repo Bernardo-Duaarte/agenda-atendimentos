@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IMAGENS, variavelCss } from "@/lib/imagens";
 import { exigirSessao } from "@/lib/sessao";
 import { sair } from "@/app/entrar/acoes";
 import { BotaoTema } from "@/components/botao-tema";
@@ -28,10 +29,37 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
   return (
     <>
       <AtualizarSozinho />
-      <header className="border-b border-borda bg-superficie">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-          <Link href="/" className="text-base font-semibold tracking-tight text-marca">
-            Agenda
+
+      {/* A foto, borrada e ao fundo. Ver `.atmosfera` em globals.css. */}
+      {IMAGENS.atmosfera && (
+        <div className="atmosfera" style={variavelCss("--img-atmosfera", IMAGENS.atmosfera)} aria-hidden />
+      )}
+
+      {/* Translúcido para a foto passar por trás do cabeçalho; o desfoque é de
+          um elemento só, então não pesa como pesaria em cada cartão. */}
+      <header className="sticky top-0 z-20 border-b border-borda bg-superficie/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5">
+            {IMAGENS.rosto ? (
+              // `<img>` simples: a miniatura é minúscula e o endereço pode ser de
+              // qualquer domínio, o que o `next/image` exigiria cadastrar.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={IMAGENS.rosto}
+                alt=""
+                width={32}
+                height={32}
+                className="size-8 rounded-full object-cover ring-1 ring-borda"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="flex size-8 items-center justify-center rounded-full bg-marca text-sm font-semibold text-white ring-1 ring-borda"
+              >
+                A
+              </span>
+            )}
+            <span className="text-base font-semibold tracking-tight text-marca">Agenda</span>
           </Link>
           <nav className="flex flex-1 gap-1 overflow-x-auto">
             {abasVisiveis.map((a) => (

@@ -124,7 +124,7 @@ export default async function PaginaAtendimento(props: PageProps<"/agenda/[id]">
               {a.lembreteEnviadoEm && <Etiqueta tom="ok">lembrete enviado</Etiqueta>}
               {foraDoHorario && <Etiqueta tom="alerta">fora do horário</Etiqueta>}
             </div>
-            <p className="text-lg font-medium capitalize text-texto">{dataLonga(a.inicio)}</p>
+            <p className="text-lg font-medium text-texto first-letter:uppercase">{dataLonga(a.inicio)}</p>
             <p className="text-2xl font-semibold text-texto">
               {hora(a.inicio)} – {hora(a.fim)}
             </p>

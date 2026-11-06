@@ -69,7 +69,8 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold capitalize tracking-tight text-texto">
+        {/* `capitalize` poria maiúscula em toda palavra: "Setembro De 2026". */}
+        <h1 className="text-2xl font-semibold tracking-tight text-texto first-letter:uppercase">
           {nomeDoMes(mes)}
         </h1>
         <p className="mt-0.5 text-sm text-texto-fraco">

@@ -130,6 +130,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run lint` | Lint the code |
 
+## Photos
+
+The app's look was built around a photo of its user, so the photos are **not in
+this repository**. Each one comes from an environment variable
+(`NEXT_PUBLIC_IMG_ATMOSFERA`, `NEXT_PUBLIC_IMG_RETRATO`, `NEXT_PUBLIC_IMG_ROSTO`)
+holding an `https` link to storage the owner controls. Leave them empty and the
+app runs the same, with the colour palette and no photo.
+
 ## Deployment
 
 Hosted on Vercel. `vercel.json` pins the region to São Paulo (`gru1`), next to

@@ -20,7 +20,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold capitalize tracking-tight text-texto">
+          <h1 className="text-2xl font-semibold tracking-tight text-texto first-letter:uppercase">
             {dataLonga(new Date(`${dia}T12:00:00Z`))}
           </h1>
           <p className="mt-0.5 text-sm text-texto-fraco">

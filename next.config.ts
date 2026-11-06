@@ -17,11 +17,27 @@ const emDesenvolvimento = process.env.NODE_ENV === "development";
  *   form-action 'self'   → um formulário não pode ser reapontado para fora
  *   base-uri 'self'      → impede reescrever a base das URLs relativas
  */
+/**
+ * As fotos do visual vêm de endereços configurados por variável de ambiente
+ * (ver src/lib/imagens.ts). Só os domínios externos entram na política.
+ */
+const dominiosDeImagem = [
+  process.env.NEXT_PUBLIC_IMG_ATMOSFERA,
+  process.env.NEXT_PUBLIC_IMG_RETRATO,
+  process.env.NEXT_PUBLIC_IMG_ROSTO,
+].flatMap((u) => {
+  try {
+    return u && /^https:/.test(u) ? [new URL(u).origin] : [];
+  } catch {
+    return [];
+  }
+});
+
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${emDesenvolvimento ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  ["img-src 'self' blob: data:", ...new Set(dominiosDeImagem)].join(" "),
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",
