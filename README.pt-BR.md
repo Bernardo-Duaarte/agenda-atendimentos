@@ -29,7 +29,7 @@ Todas ficam no `.env`, que **nunca** vai para o Git.
 | `SESSION_SECRET` | Assina o cookie de sessão. Trocar desloga todo mundo. |
 | `CRON_SECRET` | Protege a rota que mantém o banco acordado. |
 | `CALENDAR_TOKEN` | Protege o endereço da agenda assinada no iPhone. Quem tem o link vê a agenda: trate como senha. |
-| `GOOGLE_MAPS_API_KEY` | Calcula distância e tempo até a cliente (Routes API). Opcional: sem ela, ida, volta e taxa ficam manuais. |
+| `GOOGLE_MAPS_API_KEY` | Opcional e experimental: serviria para preencher distância e tempo até a cliente, mas ainda não está em uso. Ida, volta e taxa são digitadas à mão. |
 
 Para gerar um segredo aleatório:
 

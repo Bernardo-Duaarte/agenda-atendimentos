@@ -15,10 +15,8 @@ of the person who uses it every day.
 
 - **Appointments that account for travel.** A home visit blocks the calendar
   from `start − travel there` to `end + travel back`, not just the service
-  time, so back-to-back bookings across town can't overlap.
-- **Automatic travel fee.** Distance and drive time come from the Google
-  Routes API (traffic-aware). The fee uses a base + per-km + per-minute
-  formula calibrated against real ride-hailing prices.
+  time, so back-to-back bookings across town can't overlap. Travel times are
+  entered by hand.
 - **Off-hours pricing.** Services starting outside the configured working
   window are priced differently. The same pricing function runs in the browser
   for instant feedback and on the server, where the result is final.
@@ -52,7 +50,7 @@ of the person who uses it every day.
 | Database | PostgreSQL on Supabase, Prisma 7 ORM with migrations |
 | Styling | Tailwind CSS 4, light and dark themes |
 | Hosting | Vercel (São Paulo region), daily cron job |
-| External APIs | Google Routes API, iCloud published calendars (ICS) |
+| External APIs | iCloud published calendars (ICS) |
 
 ## Design decisions
 
@@ -65,7 +63,7 @@ of the person who uses it every day.
   bottle.
 - **Dates are stored in UTC.** Conversion to São Paulo time happens only at
   display, in a single module (`src/lib/tempo.ts`).
-- **Business rules live in plain modules.** Pricing, travel fees, finance,
+- **Business rules live in plain modules.** Pricing, finance,
   reports and contact import are pure functions in `src/lib`, separate from
   database and session code, so the rules that can go wrong are easy to check.
 
@@ -110,7 +108,7 @@ npm run dev             # http://localhost:3000
 | `SESSION_SECRET` | Signs the session cookie; changing it logs everyone out |
 | `CALENDAR_TOKEN` | Protects the calendar feed URL; treat it as a password |
 | `CRON_SECRET` | Protects the daily keep-alive route |
-| `GOOGLE_MAPS_API_KEY` | Optional. Enables travel distance, time and fee; without it those fields are manual |
+| `GOOGLE_MAPS_API_KEY` | Optional and experimental: meant to fill travel distance and time, not in use yet. Those fields are entered by hand |
 
 Generate a random secret with:
 
