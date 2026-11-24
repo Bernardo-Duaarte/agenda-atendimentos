@@ -32,8 +32,10 @@ export type ResumoFinanceiro = {
   sinalRecebido: number;
   /** O sinal foi coberto? É o que garante o horário. */
   sinalQuitado: boolean;
-  /** Ainda cobrável. Zero quando cancelado ou faltou. */
+  /** Ainda cobrável do que foi combinado. Zero quando cancelado ou faltou. */
   aReceber: number;
+  /** Cobrado além do preço combinado. Não abate o que ela ainda deve. */
+  extraCobrado: number;
   /** Custo dos produtos: o real quando concluído, a estimativa antes disso. */
   custoProdutos: number;
   custoEhEstimativa: boolean;
@@ -83,8 +85,19 @@ export function resumoFinanceiro(a: {
     .filter((p) => p.tipo === "SINAL" || p.tipo === "DEVOLUCAO")
     .reduce((t, p) => t + p.valorCentavos, 0);
 
+  /**
+   * Cobrado além do preço: fotos extras, um serviço acrescentado na hora.
+   *
+   * Fica separado porque não quita nada do que foi combinado. Somado junto, um
+   * extra de R$ 130 faria o sistema achar que a cliente devia R$ 130 a menos
+   * do serviço — e a dívida sumiria da tela sem ter sido paga.
+   */
+  const extraCobrado = a.pagamentos
+    .filter((p) => p.tipo === "EXTRA")
+    .reduce((t, p) => t + p.valorCentavos, 0);
+
   const encerrado = (NAO_SE_COBRA_MAIS as readonly string[]).includes(a.status);
-  const aReceber = encerrado ? 0 : Math.max(0, total - recebido);
+  const aReceber = encerrado ? 0 : Math.max(0, total - (recebido - extraCobrado));
 
   const consumo = a.movimentos.filter((m) => m.tipo === "CONSUMO");
   const custoReal = consumo.reduce((t, m) => t + (m.custoTotalCentavos ?? 0), 0);
@@ -103,6 +116,7 @@ export function resumoFinanceiro(a: {
     sinalRecebido,
     sinalQuitado: a.sinalCentavos > 0 && sinalRecebido >= a.sinalCentavos,
     aReceber,
+    extraCobrado,
     custoProdutos,
     custoEhEstimativa,
     // Do que ENTROU, e não do que foi combinado: é o dinheiro que existe.

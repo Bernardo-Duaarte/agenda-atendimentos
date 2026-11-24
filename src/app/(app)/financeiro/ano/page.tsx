@@ -113,8 +113,12 @@ export default async function PaginaAno(props: PageProps<"/financeiro/ano">) {
           <Cartao className="mb-10 grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-4">
             <Destaque
               rotulo="Faturamento do ano"
-              valor={formatarReal(r.total.combinado)}
-              explica="tudo que foi combinado"
+              valor={formatarReal(r.total.combinado + r.total.extras)}
+              explica={
+                r.total.extras > 0
+                  ? `combinado mais ${formatarReal(r.total.extras)} de extras`
+                  : "tudo que foi combinado"
+              }
             />
             <Destaque
               rotulo="Seu no ano"

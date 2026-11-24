@@ -151,6 +151,26 @@ export async function relatorioDoMes(mes: string) {
 
   const combinado = valem.reduce((t, c) => t + c.conta.total, 0);
 
+  /**
+   * Cobrado além do preço combinado — fotos extras, um serviço acrescentado na
+   * hora. É receita dela e precisa entrar no "seu no mês".
+   *
+   * Ficava de fora porque "seu" saía de `combinado`, que é só preço + taxa de
+   * deslocamento. O extra aparecia em "já recebido" e sumia do resultado: a
+   * tela mostrava R$ 130 entrando e não somava em lugar nenhum.
+   *
+   * Devolução entra aqui também, com o sinal negativo que ela já tem no banco:
+   * dinheiro devolvido não é seu.
+   */
+  const extras = valem.reduce(
+    (t, c) =>
+      t +
+      c.atendimento.pagamentos
+        .filter((p) => p.tipo === "EXTRA" || p.tipo === "DEVOLUCAO")
+        .reduce((s, p) => s + p.valorCentavos, 0),
+    0,
+  );
+
   return {
     mes,
 
@@ -160,10 +180,11 @@ export async function relatorioDoMes(mes: string) {
       quantosConcluidos: concluidos.length,
 
       combinado,
+      extras,
       repasses,
       custoProdutos,
       /** O que o trabalho deste mês vale para você. */
-      seu: combinado - repasses - custoProdutos,
+      seu: combinado + extras - repasses - custoProdutos,
 
       /** Dos atendimentos deste mês, quanto já entrou — em qualquer data. */
       recebido: valem.reduce((t, c) => t + c.conta.recebido, 0),
@@ -301,6 +322,8 @@ export type MesDoAno = {
   numero: number;
   atendimentos: number;
   combinado: number;
+  /** Cobrado além do combinado, já descontadas as devoluções. */
+  extras: number;
   repasses: number;
   seu: number;
   recebido: number;
@@ -323,7 +346,7 @@ export async function relatorioDoAno(ano: number) {
         taxaDeslocamentoCentavos: true,
         repasseCentavos: true,
         status: true,
-        pagamentos: { select: { valorCentavos: true } },
+        pagamentos: { select: { valorCentavos: true, tipo: true } },
       },
     }),
     prisma.pagamento.findMany({
@@ -354,6 +377,7 @@ export async function relatorioDoAno(ano: number) {
       numero: m,
       atendimentos: 0,
       combinado: 0,
+      extras: 0,
       repasses: 0,
       seu: 0,
       recebido: 0,
@@ -377,9 +401,18 @@ export async function relatorioDoAno(ano: number) {
     linha.combinado += total;
     linha.repasses += a.repasseCentavos;
     linha.recebido += recebido;
-    linha.aReceber += Math.max(0, total - recebido);
+    // Extra é receita dela; devolução vem negativa do banco e abate sozinha.
+    linha.extras += a.pagamentos
+      .filter((p) => p.tipo === "EXTRA" || p.tipo === "DEVOLUCAO")
+      .reduce((s, p) => s + p.valorCentavos, 0);
+    // Só o preço combinado fica em aberto. O extra não quita serviço nenhum:
+    // somado junto, faria a dívida encolher sem ninguém ter pago.
+    const extraDele = a.pagamentos
+      .filter((p) => p.tipo === "EXTRA")
+      .reduce((s, p) => s + p.valorCentavos, 0);
+    linha.aReceber += Math.max(0, total - (recebido - extraDele));
   }
-  for (const l of meses.values()) l.seu = l.combinado - l.repasses;
+  for (const l of meses.values()) l.seu = l.combinado + l.extras - l.repasses;
 
   for (const p of pagamentos) {
     const linha = em(p.pagoEm);
@@ -405,6 +438,7 @@ export async function relatorioDoAno(ano: number) {
     total: {
       atendimentos: somar("atendimentos"),
       combinado: somar("combinado"),
+      extras: somar("extras"),
       repasses: somar("repasses"),
       seu: somar("seu"),
       recebido: somar("recebido"),

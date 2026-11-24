@@ -72,6 +72,17 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
     ESTOQUE_ATIVO && trabalho.custoProdutos > 0 && "produtos",
   ].filter((x): x is string => typeof x === "string");
 
+  // A conta escrita por extenso. Ela percebeu o erro porque os números na
+  // tela não fechavam — então o rótulo diz exatamente o que entrou e saiu.
+  const contaDoSeu = [
+    "combinado",
+    trabalho.extras > 0 && "mais extras",
+    trabalho.extras < 0 && "menos devoluções",
+    descontos.length > 0 && `menos ${descontos.join(" e ")}`,
+  ]
+    .filter((x): x is string => typeof x === "string")
+    .join(" ");
+
   return (
     <>
       <div className="mb-6">
@@ -139,6 +150,14 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
                 valor={trabalho.combinado}
                 explica="serviços e taxas de deslocamento"
               />
+              {trabalho.extras !== 0 && (
+                <Numero
+                  rotulo="Extras"
+                  valor={trabalho.extras}
+                  explica="cobrado além do combinado"
+                  tom="bom"
+                />
+              )}
               {trabalho.repasses > 0 && (
                 <Numero
                   rotulo="Repasses"
@@ -156,11 +175,7 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
               <Numero
                 rotulo="Seu no mês"
                 valor={trabalho.seu}
-                explica={
-                  descontos.length > 0
-                    ? `combinado menos ${descontos.join(" e ")}`
-                    : "nada a descontar neste mês"
-                }
+                explica={contaDoSeu === "combinado" ? "nada a somar nem descontar" : contaDoSeu}
                 tom={trabalho.seu >= 0 ? "bom" : "atencao"}
                 destaque
               />
@@ -171,8 +186,8 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
                 rotulo="Já recebido"
                 valor={trabalho.recebido}
                 explica={
-                  trabalho.recebido > trabalho.combinado
-                    ? `inclui ${formatarReal(trabalho.recebido - trabalho.combinado)} além do combinado`
+                  trabalho.extras > 0
+                    ? `inclui os ${formatarReal(trabalho.extras)} de extras`
                     : "destes atendimentos, em qualquer data"
                 }
               />
