@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { paraUtc } from "./tempo";
+import { paraInputDate, paraUtc } from "./tempo";
 import { resumoFinanceiro } from "./financeiro";
 import { ESTOQUE_ATIVO } from "./recursos";
 
@@ -199,8 +199,54 @@ export async function relatorioDoMes(mes: string) {
       })),
     },
 
+    /** Quem chegou e quem estreou. Nem trabalho nem caixa: é gente. */
+    clientes: await clientesDoPeriodo(inicio, fim),
+
     /** A lista do mês, incluindo pré-agendamento e cancelado. */
     atendimentos: contas,
+  };
+}
+
+/**
+ * Duas contagens de cliente no período, que respondem perguntas diferentes.
+ *
+ *   NOVAS       — cadastradas neste mês. Mede quanta gente nova chegou, mesmo
+ *                 que o atendimento dela só aconteça em março.
+ *   PRIMEIRA VEZ — cujo primeiro atendimento fechado cai neste mês. Mede
+ *                 quantas estrearam de fato.
+ *
+ * Elas não batem de propósito: uma noiva cadastrada em janeiro para a festa de
+ * junho conta como nova em janeiro e como primeira vez em junho.
+ */
+async function clientesDoPeriodo(inicio: Date, fim: Date) {
+  const [novas, primeiros, origens] = await Promise.all([
+    prisma.cliente.count({ where: { criadoEm: { gte: inicio, lt: fim } } }),
+
+    // O primeiro atendimento de CADA cliente, não só os do mês: só dá para
+    // saber que um atendimento é estreia comparando com todos os outros dela.
+    prisma.agendamento.groupBy({
+      by: ["clienteId"],
+      where: { status: { in: [...CONTA_COMO_TRABALHO] } },
+      _min: { inicio: true },
+    }),
+
+    prisma.cliente.groupBy({
+      by: ["origem"],
+      where: { criadoEm: { gte: inicio, lt: fim } },
+      _count: true,
+    }),
+  ]);
+
+  const primeiraVez = primeiros.filter(
+    (p) => p._min.inicio && p._min.inicio >= inicio && p._min.inicio < fim,
+  ).length;
+
+  return {
+    novas,
+    primeiraVez,
+    porOrigem: origens
+      .map((o) => ({ origem: o.origem, quantas: o._count }))
+      .sort((a, b) => b.quantas - a.quantas),
   };
 }
 
@@ -237,4 +283,151 @@ export async function historicoDaCliente(clienteId: string) {
     recebido: contas.reduce((t, c) => t + c.conta.recebido, 0),
     aReceber: valem.reduce((t, c) => t + c.conta.aReceber, 0),
   };
+}
+
+/**
+ * O ano inteiro numa tela.
+ *
+ * Não chama `relatorioDoMes` doze vezes: seriam dezenas de consultas para
+ * desenhar uma tabela. Busca o ano de uma vez e separa por mês em memória.
+ *
+ * A separação usa a data em São Paulo, e não a guardada: um atendimento das
+ * 22h de 31 de janeiro está gravado como 1 de fevereiro em UTC, e cairia no
+ * mês errado se agrupado pelo valor cru.
+ */
+export type MesDoAno = {
+  mes: string;
+  /** 1 a 12, para o rótulo. */
+  numero: number;
+  atendimentos: number;
+  combinado: number;
+  repasses: number;
+  seu: number;
+  recebido: number;
+  aReceber: number;
+  entrou: number;
+  clientesNovas: number;
+  primeiraVez: number;
+};
+
+export async function relatorioDoAno(ano: number) {
+  const inicio = paraUtc(`${ano}-01-01`, "00:00");
+  const fim = paraUtc(`${ano + 1}-01-01`, "00:00");
+
+  const [atendimentos, pagamentos, clientes, primeiros, origens] = await Promise.all([
+    prisma.agendamento.findMany({
+      where: { inicio: { gte: inicio, lt: fim }, status: { in: [...CONTA_COMO_TRABALHO] } },
+      select: {
+        inicio: true,
+        precoCentavos: true,
+        taxaDeslocamentoCentavos: true,
+        repasseCentavos: true,
+        status: true,
+        pagamentos: { select: { valorCentavos: true } },
+      },
+    }),
+    prisma.pagamento.findMany({
+      where: { pagoEm: { gte: inicio, lt: fim } },
+      select: { pagoEm: true, valorCentavos: true },
+    }),
+    prisma.cliente.findMany({
+      where: { criadoEm: { gte: inicio, lt: fim } },
+      select: { criadoEm: true },
+    }),
+    prisma.agendamento.groupBy({
+      by: ["clienteId"],
+      where: { status: { in: [...CONTA_COMO_TRABALHO] } },
+      _min: { inicio: true },
+    }),
+    prisma.cliente.groupBy({
+      by: ["origem"],
+      where: { criadoEm: { gte: inicio, lt: fim } },
+      _count: true,
+    }),
+  ]);
+
+  const meses = new Map<string, MesDoAno>();
+  for (let m = 1; m <= 12; m++) {
+    const chave = `${ano}-${String(m).padStart(2, "0")}`;
+    meses.set(chave, {
+      mes: chave,
+      numero: m,
+      atendimentos: 0,
+      combinado: 0,
+      repasses: 0,
+      seu: 0,
+      recebido: 0,
+      aReceber: 0,
+      entrou: 0,
+      clientesNovas: 0,
+      primeiraVez: 0,
+    });
+  }
+
+  /** "2026-03" a partir de um instante, já no fuso de São Paulo. */
+  const mesDe = (d: Date) => paraInputDate(d).slice(0, 7);
+  const em = (d: Date) => meses.get(mesDe(d));
+
+  for (const a of atendimentos) {
+    const linha = em(a.inicio);
+    if (!linha) continue;
+    const total = a.precoCentavos + a.taxaDeslocamentoCentavos;
+    const recebido = a.pagamentos.reduce((t, p) => t + p.valorCentavos, 0);
+    linha.atendimentos += 1;
+    linha.combinado += total;
+    linha.repasses += a.repasseCentavos;
+    linha.recebido += recebido;
+    linha.aReceber += Math.max(0, total - recebido);
+  }
+  for (const l of meses.values()) l.seu = l.combinado - l.repasses;
+
+  for (const p of pagamentos) {
+    const linha = em(p.pagoEm);
+    if (linha) linha.entrou += p.valorCentavos;
+  }
+  for (const c of clientes) {
+    const linha = em(c.criadoEm);
+    if (linha) linha.clientesNovas += 1;
+  }
+  for (const p of primeiros) {
+    if (!p._min.inicio || p._min.inicio < inicio || p._min.inicio >= fim) continue;
+    const linha = em(p._min.inicio);
+    if (linha) linha.primeiraVez += 1;
+  }
+
+  const lista = [...meses.values()];
+  const somar = (campo: keyof MesDoAno) =>
+    lista.reduce((t, l) => t + (l[campo] as number), 0);
+
+  return {
+    ano,
+    meses: lista,
+    total: {
+      atendimentos: somar("atendimentos"),
+      combinado: somar("combinado"),
+      repasses: somar("repasses"),
+      seu: somar("seu"),
+      recebido: somar("recebido"),
+      aReceber: somar("aReceber"),
+      entrou: somar("entrou"),
+      clientesNovas: somar("clientesNovas"),
+      primeiraVez: somar("primeiraVez"),
+    },
+    porOrigem: origens
+      .map((o) => ({ origem: o.origem, quantas: o._count }))
+      .sort((a, b) => b.quantas - a.quantas),
+  };
+}
+
+/** Os anos que têm alguma coisa, para a navegação não oferecer ano vazio. */
+export async function anosComMovimento(): Promise<number[]> {
+  const [primeiro, ultimo] = await Promise.all([
+    prisma.agendamento.findFirst({ orderBy: { inicio: "asc" }, select: { inicio: true } }),
+    prisma.agendamento.findFirst({ orderBy: { inicio: "desc" }, select: { inicio: true } }),
+  ]);
+  if (!primeiro || !ultimo) return [new Date().getFullYear()];
+
+  const de = Number(paraInputDate(primeiro.inicio).slice(0, 4));
+  const ate = Number(paraInputDate(ultimo.inicio).slice(0, 4));
+  return Array.from({ length: ate - de + 1 }, (_, i) => de + i);
 }

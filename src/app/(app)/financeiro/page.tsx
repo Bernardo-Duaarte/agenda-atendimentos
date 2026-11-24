@@ -5,6 +5,7 @@ import { ROTULO_FORMA } from "@/lib/financeiro";
 import { formatarReal } from "@/lib/dinheiro";
 import { dataCurta, hora } from "@/lib/tempo";
 import { Cartao, EtiquetaStatus, Vazio } from "@/components/ui";
+import { rotuloOrigem } from "@/lib/origem";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
 
 const MESES = [
@@ -27,12 +28,15 @@ function Numero({
   explica,
   tom = "normal",
   destaque = false,
+  moeda = true,
 }: {
   rotulo: string;
   valor: number;
   explica?: string;
   tom?: "normal" | "bom" | "atencao" | "fraco";
   destaque?: boolean;
+  /** Contagem de gente não leva R$. */
+  moeda?: boolean;
 }) {
   const cor = {
     normal: "text-texto",
@@ -44,7 +48,9 @@ function Numero({
   return (
     <div className={destaque ? "rounded-lg bg-superficie-suave px-4 py-3" : ""}>
       <p className="text-sm font-medium text-texto-suave">{rotulo}</p>
-      <p className={`mt-1 text-2xl font-semibold ${cor}`}>{formatarReal(valor)}</p>
+      <p className={`mt-1 text-2xl font-semibold ${cor}`}>
+        {moeda ? formatarReal(valor) : valor}
+      </p>
       {explica && <p className="text-xs text-texto-fraco">{explica}</p>}
     </div>
   );
@@ -57,7 +63,7 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
   const atual = mesAtual();
   const mes = typeof m === "string" && /^\d{4}-\d{2}$/.test(m) ? m : atual;
 
-  const { trabalho, caixa, atendimentos } = await relatorioDoMes(mes);
+  const { trabalho, caixa, clientes, atendimentos } = await relatorioDoMes(mes);
 
   // O rótulo de "Seu no mês" nomeia tudo o que foi descontado. Um rótulo que
   // omite uma parcela da conta é o que fazia o número parecer errado antes.
@@ -100,6 +106,12 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
           className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
         >
           Próximo mês →
+        </Link>
+        <Link
+          href={`/financeiro/ano?a=${mes.slice(0, 4)}`}
+          className="ml-auto rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-marca transition hover:bg-superficie-suave"
+        >
+          Ver o ano inteiro
         </Link>
       </nav>
 
@@ -206,6 +218,50 @@ export default async function PaginaFinanceiro(props: PageProps<"/financeiro">) 
                     {s.nome} <span className="text-texto-fraco">× {s.quantos}</span>
                   </span>
                   <span className="font-medium text-texto-suave">{formatarReal(s.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </Cartao>
+        )}
+      </section>
+
+      {/* ───────────────── Clientes do mês ───────────────── */}
+
+      <section className="mb-10">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-texto">
+            Clientes em {nomeDoMes(mes).replace(/ de \d{4}$/, "")}
+          </h2>
+          <p className="mt-0.5 text-xs text-texto-fraco">
+            Duas contagens diferentes: quem se cadastrou e quem estreou no atendimento.
+          </p>
+        </div>
+
+        <Cartao className="grid gap-5 p-5 sm:grid-cols-2">
+          <Numero
+            rotulo="Novas cadastradas"
+            valor={clientes.novas}
+            explica="entraram no cadastro neste mês"
+            moeda={false}
+          />
+          <Numero
+            rotulo="Atendidas pela primeira vez"
+            valor={clientes.primeiraVez}
+            explica="o primeiro atendimento delas caiu neste mês"
+            moeda={false}
+          />
+        </Cartao>
+
+        {clientes.porOrigem.some((o) => o.origem) && (
+          <Cartao className="mt-4 p-5">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-texto-fraco">
+              Como te conheceram
+            </h3>
+            <ul className="space-y-2 text-sm">
+              {clientes.porOrigem.map((o) => (
+                <li key={o.origem ?? "sem"} className="flex items-baseline justify-between gap-4">
+                  <span className="text-texto">{rotuloOrigem(o.origem) ?? "Não informado"}</span>
+                  <span className="font-medium tabular-nums text-texto-suave">{o.quantas}</span>
                 </li>
               ))}
             </ul>

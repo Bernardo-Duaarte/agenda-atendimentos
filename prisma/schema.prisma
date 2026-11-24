@@ -25,17 +25,17 @@ enum LocalAtendimento {
 
 enum StatusAgendamento {
   PRE_AGENDAMENTO // conversa inicial: data combinada, sinal ainda não pago
-  PENDENTE        // fechado, aguardando o sinal
-  CONFIRMADO      // sinal pago, horário garantido
+  PENDENTE // fechado, aguardando o sinal
+  CONFIRMADO // sinal pago, horário garantido
   CONCLUIDO
   CANCELADO
   FALTOU // no-show: contabiliza separado de cancelado, é métrica diferente
 }
 
 enum TipoPagamento {
-  SINAL     // entrada que confirma o horário
-  RESTANTE  // o que falta, normalmente no dia
-  EXTRA     // algo cobrado além do combinado
+  SINAL // entrada que confirma o horário
+  RESTANTE // o que falta, normalmente no dia
+  EXTRA // algo cobrado além do combinado
   DEVOLUCAO // valor devolvido à cliente
 }
 
@@ -49,8 +49,8 @@ enum FormaPagamento {
 enum TipoMovimento {
   ENTRADA // compra de produto
   CONSUMO // baixa automática ao concluir um atendimento
-  PERDA   // vencimento, quebra, derramou
-  AJUSTE  // correção após contagem manual
+  PERDA // vencimento, quebra, derramou
+  AJUSTE // correção após contagem manual
 }
 
 model Cliente {
@@ -67,6 +67,13 @@ model Cliente {
 
   // Endereço usado como sugestão ao criar atendimento em domicílio
   enderecoPadrao String?
+
+  /// Como ela chegou até você: indicação, Instagram, Google...
+  ///
+  /// Texto livre no banco, e não enum, porque a lista muda com o tempo — uma
+  /// rede nova aparece e não deve exigir migração. Os valores possíveis estão
+  /// em `src/lib/origem.ts`, e a tela só oferece aqueles.
+  origem String?
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
@@ -115,7 +122,7 @@ model Servico {
   /// sairia de sincronia no primeiro reajuste.
   ///
   /// Zero significa "não cobro diferente nessa condição".
-  acrescimoDomicilioCentavos  Int @default(0)
+  acrescimoDomicilioCentavos   Int @default(0)
   acrescimoForaHorarioCentavos Int @default(0)
 
   criadoEm     DateTime @default(now())
@@ -141,9 +148,9 @@ model Produto {
   /// É por unidade porque a ficha técnica consome por unidade — guardar o
   /// preço do frasco aqui faria 4 ml de base custarem um frasco inteiro.
   custoUnitarioCentavos Int
-  estoqueMinimo Decimal   @default(0) @db.Decimal(10, 3)
-  validade      DateTime? @db.Date
-  ativo         Boolean   @default(true)
+  estoqueMinimo         Decimal   @default(0) @db.Decimal(10, 3)
+  validade              DateTime? @db.Date
+  ativo                 Boolean   @default(true)
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
@@ -225,11 +232,11 @@ model Agendamento {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  cliente      Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  servico      Servico       @relation(fields: [servicoId], references: [id], onDelete: Restrict)
-  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
-  movimentos MovimentoEstoque[]
-  pagamentos Pagamento[]
+  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  servico      Servico            @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+  profissional Profissional?      @relation(fields: [profissionalId], references: [id], onDelete: Restrict)
+  movimentos   MovimentoEstoque[]
+  pagamentos   Pagamento[]
 
   @@index([inicio])
   @@index([status, inicio])
@@ -376,4 +383,28 @@ model Pagamento {
 
   @@index([agendamentoId])
   @@index([pagoEm])
+}
+
+/// Tempo reservado que não é atendimento: folga, viagem, médico, almoço.
+///
+/// Existe porque antes a única forma de proteger um horário era inventar um
+/// atendimento falso — que entrava no faturamento e sujava o relatório.
+///
+/// Bloqueio é sempre SEU: a agenda das parceiras é separada, e o que você
+/// bloqueia não impede a Giselle de atender.
+model Bloqueio {
+  id     String   @id @default(cuid())
+  inicio DateTime
+  fim    DateTime
+
+  /// "Férias", "Médico". Opcional: às vezes só interessa que está ocupado.
+  motivo String?
+
+  /// Dia inteiro guarda início 00:00 e fim 23:59 do mesmo dia; o campo existe
+  /// para a tela mostrar "o dia todo" em vez de "das 00:00 às 23:59".
+  diaInteiro Boolean @default(false)
+
+  criadoEm DateTime @default(now())
+
+  @@index([inicio])
 }

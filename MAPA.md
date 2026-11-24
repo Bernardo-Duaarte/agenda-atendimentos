@@ -28,7 +28,9 @@ PostgreSQL no Supabase · Tailwind 4 · publicado na Vercel.
 | Preço, acréscimo de domicílio, preço fora do horário | [`src/lib/precificacao.ts`](src/lib/precificacao.ts) |
 | Quanto se pede de sinal (% ou valor fixo) | [`src/lib/financeiro.ts`](src/lib/financeiro.ts) → `calcularSinal` |
 | Quando dois atendimentos conflitam | [`src/lib/agenda.ts`](src/lib/agenda.ts) |
-| Os números do relatório do mês | [`src/lib/relatorio.ts`](src/lib/relatorio.ts) |
+| Os números do relatório do mês ou do ano | [`src/lib/relatorio.ts`](src/lib/relatorio.ts) |
+| Como a cliente te conheceu (a lista de origens) | [`src/lib/origem.ts`](src/lib/origem.ts) |
+| Bloqueio de horário (folga, viagem) | [`src/lib/agenda.ts`](src/lib/agenda.ts) → `bloqueioChoca` |
 | O texto do lembrete no WhatsApp | [`src/lib/whatsapp.ts`](src/lib/whatsapp.ts) |
 | Como se busca uma cliente (acento, telefone) | [`src/lib/busca.ts`](src/lib/busca.ts) |
 | O que vale como telefone | [`src/lib/telefone.ts`](src/lib/telefone.ts) |
@@ -59,7 +61,9 @@ Tudo sob `src/app/`. A pasta `(app)` é a área logada; `entrar` fica fora dela.
 | `/clientes` | [`(app)/clientes/`](<src/app/(app)/clientes/>) | Lista com busca |
 | `/clientes/importar` | [`(app)/clientes/importar/`](<src/app/(app)/clientes/importar/>) | Importar contatos de um `.vcf` |
 | `/servicos` | [`(app)/servicos/`](<src/app/(app)/servicos/>) | Tabela de serviços e preços |
+| `/agenda/bloquear` | [`(app)/agenda/bloquear/`](<src/app/(app)/agenda/bloquear/>) | Reservar um período seu |
 | `/financeiro` | [`(app)/financeiro/`](<src/app/(app)/financeiro/>) | Relatório do mês |
+| `/financeiro/ano` | [`(app)/financeiro/ano/`](<src/app/(app)/financeiro/ano/>) | Os doze meses numa tela |
 | `/configuracao` | [`(app)/configuracao/`](<src/app/(app)/configuracao/>) | Ajustes, janela de horário, parceiras |
 | `/produtos` | [`(app)/produtos/`](<src/app/(app)/produtos/>) | **Desligado.** Ver "O que está desligado" |
 | `/entrar` | [`entrar/`](src/app/entrar/) | Senha |
@@ -94,11 +98,11 @@ sem subir servidor e a mesma regra roda nos dois lados.
 - [`dinheiro.ts`](src/lib/dinheiro.ts) — tudo é `Int` em centavos; aqui vira texto e volta
 - [`precificacao.ts`](src/lib/precificacao.ts) — preço base + acréscimo de domicílio + acréscimo fora do horário, **que somam**
 - [`financeiro.ts`](src/lib/financeiro.ts) — contas de um atendimento; `calcularSinal` (porcentagem **ou** valor fixo)
-- [`relatorio.ts`](src/lib/relatorio.ts) — o mês em **duas contas que nunca se somam**: trabalho (por data do atendimento) e caixa (por data do pagamento)
+- [`relatorio.ts`](src/lib/relatorio.ts) — o mês em **duas contas que nunca se somam**: trabalho (por data do atendimento) e caixa (por data do pagamento). Também `relatorioDoAno`, que busca o ano de uma vez em vez de chamar o mês doze vezes
 - [`deslocamento.ts`](src/lib/deslocamento.ts) — taxa a partir de distância e tempo
 
 ### Agenda
-- [`agenda.ts`](src/lib/agenda.ts) — conflito de horário. Regra chave: **cada profissional tem a própria agenda**, então ela pode maquiar enquanto a parceira faz penteado
+- [`agenda.ts`](src/lib/agenda.ts) — conflito de horário. Regra chave: **cada profissional tem a própria agenda**, então ela pode maquiar enquanto a parceira faz penteado. `bloqueioChoca` trata o bloqueio, que ocupa só a agenda dela
 - [`agenda-consulta.ts`](src/lib/agenda-consulta.ts) — as consultas ao banco
 - [`calendario-mes.ts`](src/lib/calendario-mes.ts) — grade do mês
 - [`janela.ts`](src/lib/janela.ts) — a janela de horário normal, lida da configuração
@@ -110,6 +114,7 @@ sem subir servidor e a mesma regra roda nos dois lados.
 - [`vcard.ts`](src/lib/vcard.ts) — lê o `.vcf` exportado do iCloud
 - [`importacao.ts`](src/lib/importacao.ts) — valida e remove repetidos antes de gravar
 - [`whatsapp.ts`](src/lib/whatsapp.ts) — monta o link `wa.me` com a mensagem pronta
+- [`origem.ts`](src/lib/origem.ts) — a lista de "como me conheceu"; acrescentar uma origem é acrescentar uma linha, sem migração
 
 ### Integrações
 - [`calendario.ts`](src/lib/calendario.ts) — **gera** o `.ics` que o iPhone assina
@@ -134,13 +139,14 @@ sem subir servidor e a mesma regra roda nos dois lados.
 
 | Modelo | Guarda |
 | --- | --- |
-| `Cliente` | nome, telefone, ficha técnica, endereço padrão |
+| `Cliente` | nome, telefone, ficha técnica, endereço padrão, origem |
 | `Servico` | preço, duração, acréscimos, sinal (% ou fixo), se exige parceira |
 | `Agendamento` | data, local, preço congelado, sinal, repasse, status |
 | `Pagamento` | lançamentos do atendimento (sinal, restante, extra, devolução) |
 | `Profissional` | parceiras: preço dela e quanto se repassa |
 | `Configuracao` | linha única `id: "unica"` — janela de horário, endereço, taxas |
 | `Produto`, `ServicoProduto`, `MovimentoEstoque` | estoque, **desligado** |
+| `Bloqueio` | período seu reservado que não é atendimento |
 | `TentativaAcesso` | tentativas de senha, para a trava |
 
 **Ao mudar o schema:**
@@ -228,6 +234,8 @@ demais, e um número ruim contamina o cálculo de lucro.
 | Fundo fixo some atrás de um elemento | `z-index` negativo pinta atrás do fundo do pai | ponha a cor base em outra camada |
 | "Quinta-Feira, 5 De Novembro" | `capitalize` maiúscula toda palavra | `first-letter:uppercase` |
 | Toque no celular não seleciona | o teclado fecha, a página se mexe, o clique erra o alvo | resolva em `touchend` |
+| Teste de tela faz logout sozinho | o cabeçalho tem um `<button type="submit">Sair</button>`, e um seletor por `type` pega ele primeiro | mire o botão pelo texto |
+| Texto do título não bate no teste | `uppercase` é CSS: o texto renderizado vem em maiúsculas | compare sem caixa |
 
 ---
 

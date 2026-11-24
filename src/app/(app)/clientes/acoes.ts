@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
+import { origemValida } from "@/lib/origem";
 import {
   comValidacao,
   dataOpcional,
@@ -23,6 +24,9 @@ function ler(fd: FormData) {
     alergias: textoOpcional(fd, "alergias"),
     observacoes: textoOpcional(fd, "observacoes"),
     enderecoPadrao: textoOpcional(fd, "enderecoPadrao"),
+    // Conferida contra a lista: o <select> só oferece as válidas, mas uma
+    // Server Action é um endpoint POST de verdade e aceita o que mandarem.
+    origem: origemValida(textoOpcional(fd, "origem")),
   };
 }
 

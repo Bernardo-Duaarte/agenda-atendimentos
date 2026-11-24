@@ -88,6 +88,28 @@ export function intervaloDeBusca(a: JanelaDeAtendimento): { de: Date; ate: Date 
   return { de: new Date(j.de.getTime() - DIA), ate: new Date(j.ate.getTime() + DIA) };
 }
 
+/**
+ * Bloqueio: tempo seu que não é atendimento (folga, viagem, médico).
+ *
+ * Ocupa como um atendimento seu, mas **só o seu**: a agenda das parceiras é
+ * separada, e você tirar a tarde não impede a Giselle de atender. Por isso o
+ * choque só vale quando `profissionalId` é nulo.
+ *
+ * Deslocamento não entra: um bloqueio é o período em si, sem ida nem volta.
+ */
+export type Bloqueio = { id: string; inicio: Date; fim: Date; motivo: string | null };
+
+export function bloqueioChoca(
+  bloqueio: { inicio: Date; fim: Date },
+  atendimento: JanelaDeAtendimento & Executora,
+): boolean {
+  if (atendimento.profissionalId !== null) return false;
+  const j = janelaOcupada(atendimento);
+  // Encostar não é choque: a folga terminar 14h e o atendimento começar 14h
+  // é sequência válida, igual entre dois atendimentos.
+  return bloqueio.inicio < j.ate && j.de < bloqueio.fim;
+}
+
 /** Descreve o choque em português, para a mensagem de erro do formulário. */
 export function descreverConflito(
   outro: JanelaDeAtendimento & { cliente: { nome: string } },

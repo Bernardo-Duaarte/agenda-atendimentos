@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { AreaTexto, Aviso, Campo, Cartao, Entrada } from "@/components/ui";
+import { AreaTexto, Aviso, Campo, Cartao, Entrada, Selecao } from "@/components/ui";
+import { ORIGENS } from "@/lib/origem";
 import { BotaoSubmit } from "@/components/botao-submit";
 import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 
@@ -16,6 +17,7 @@ export type ClienteEmEdicao = {
   alergias: string | null;
   observacoes: string | null;
   enderecoPadrao: string | null;
+  origem: string | null;
 };
 
 export function FormularioCliente({
@@ -76,6 +78,21 @@ export function FormularioCliente({
 
         <Campo rotulo="Endereço" erro={erro("enderecoPadrao")} dica="Sugerido automaticamente nos atendimentos em domicílio.">
           <Entrada name="enderecoPadrao" defaultValue={cliente?.enderecoPadrao ?? ""} placeholder="Rua, número, bairro" />
+        </Campo>
+
+        <Campo
+          rotulo="Como me conheceu"
+          erro={erro("origem")}
+          dica="Opcional. É o que mostra, no financeiro, de onde vêm suas clientes."
+        >
+          <Selecao name="origem" defaultValue={cliente?.origem ?? ""}>
+            <option value="">Não informado</option>
+            {ORIGENS.map((o) => (
+              <option key={o.chave} value={o.chave}>
+                {o.rotulo}
+              </option>
+            ))}
+          </Selecao>
         </Campo>
       </Cartao>
 

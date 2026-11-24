@@ -5,6 +5,7 @@ import { dataLonga, hora, janelaOcupada } from "@/lib/tempo";
 import { formatarReal } from "@/lib/dinheiro";
 import { BotaoLink, Cartao, Etiqueta, EtiquetaStatus, Vazio } from "@/components/ui";
 import { SeletorDeDia } from "./seletor-de-dia";
+import { excluirBloqueio } from "./acoes-bloqueio";
 
 export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   await exigirSessao();
@@ -13,8 +14,17 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
   const hoje = hojeEmSaoPaulo();
   const dia = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : hoje;
 
-  const { atendimentos, conflitos, compromissosPessoais, erroCalendarioPessoal, choquesPessoais, total, previsto } =
-    await resumoDoDia(dia);
+  const {
+    atendimentos,
+    bloqueios,
+    choquesBloqueio,
+    conflitos,
+    compromissosPessoais,
+    erroCalendarioPessoal,
+    choquesPessoais,
+    total,
+    previsto,
+  } = await resumoDoDia(dia);
 
   return (
     <>
@@ -62,10 +72,46 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
           Ver o mês
         </Link>
 
+        <Link
+          href={`/agenda/bloquear?d=${dia}`}
+          className="rounded-lg border border-borda px-3 py-1.5 text-sm font-medium text-texto-suave transition hover:bg-superficie-suave"
+        >
+          Bloquear horário
+        </Link>
+
         <div className="ml-auto">
           <SeletorDeDia dia={dia} />
         </div>
       </nav>
+
+      {bloqueios.length > 0 && (
+        <Cartao className="mb-5 p-4">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-texto-fraco">
+            Bloqueado
+          </h2>
+          <ul className="space-y-1.5 text-sm">
+            {bloqueios.map((b) => (
+              <li key={b.id} className="flex items-center gap-3">
+                <span className="w-24 shrink-0 font-mono text-xs text-texto-fraco">
+                  {b.diaInteiro ? "dia inteiro" : `${hora(b.inicio)}–${hora(b.fim)}`}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-texto-suave">
+                  {b.motivo?.trim() || "Sem motivo anotado"}
+                </span>
+                <form action={excluirBloqueio}>
+                  <input type="hidden" name="id" value={b.id} />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-texto-fraco transition hover:bg-superficie-suave hover:text-perigo"
+                  >
+                    Liberar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </Cartao>
+      )}
 
       {compromissosPessoais.length > 0 && (
         <Cartao className="mb-5 p-4">
@@ -128,6 +174,7 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
                     {a.local === "DOMICILIO" && <Etiqueta>domicílio</Etiqueta>}
                     {conflitos.has(a.id) && <Etiqueta tom="alerta">choca com outro</Etiqueta>}
                     {choquesPessoais.has(a.id) && <Etiqueta tom="alerta">agenda pessoal</Etiqueta>}
+                    {choquesBloqueio.has(a.id) && <Etiqueta tom="alerta">horário bloqueado</Etiqueta>}
                   </div>
                   <p className="mt-0.5 truncate text-sm text-texto-fraco">
                     {a.servico.nome}
@@ -141,6 +188,11 @@ export default async function PaginaAgenda(props: PageProps<"/agenda">) {
                   {choquesPessoais.has(a.id) && (
                     <p className="mt-0.5 text-sm text-atencao-texto">
                       Em cima de {choquesPessoais.get(a.id)!.join(", ")}, da sua agenda pessoal
+                    </p>
+                  )}
+                  {choquesBloqueio.has(a.id) && (
+                    <p className="mt-0.5 text-sm text-atencao-texto">
+                      Em cima de um bloqueio seu: {choquesBloqueio.get(a.id)!.join(", ")}
                     </p>
                   )}
                 </div>

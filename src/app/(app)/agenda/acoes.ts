@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/sessao";
 import { hora, paraUtc } from "@/lib/tempo";
-import { bloqueiaHorario, descreverConflito, haConflito, intervaloDeBusca } from "@/lib/agenda";
+import {
+  bloqueiaHorario,
+  bloqueioChoca,
+  descreverConflito,
+  haConflito,
+  intervaloDeBusca,
+} from "@/lib/agenda";
 import { calcularSinal } from "@/lib/financeiro";
 import { ESTOQUE_ATIVO } from "@/lib/recursos";
 import {
@@ -121,6 +127,25 @@ async function garantirHorarioLivre(
     .find((v) => haConflito({ id: "novo", ...candidato }, v));
 
   if (choque) throw new ErroDeCampo("hora", descreverConflito(choque, hora));
+
+  // Bloqueio é tempo seu que você já reservou. Barra como um atendimento
+  // barraria — do contrário o app aceitaria marcar em cima da sua folga em
+  // silêncio, e você só descobriria no dia.
+  const bloqueios = await tx.bloqueio.findMany({
+    where: { inicio: { lt: busca.ate }, fim: { gt: busca.de } },
+  });
+  const bloqueado = bloqueios.find((b) => bloqueioChoca(b, { id: "novo", ...candidato }));
+
+  if (bloqueado) {
+    const quando = bloqueado.diaInteiro
+      ? "o dia inteiro"
+      : `das ${hora(bloqueado.inicio)} às ${hora(bloqueado.fim)}`;
+    const motivo = bloqueado.motivo?.trim();
+    throw new ErroDeCampo(
+      "hora",
+      `Você bloqueou ${quando}${motivo ? ` (${motivo})` : ""}. Libere o bloqueio na agenda se quiser atender nesse horário.`,
+    );
+  }
 }
 
 export async function criarAtendimento(

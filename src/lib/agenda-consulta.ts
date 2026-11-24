@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { paraInputDate, paraInputTime, paraUtc } from "./tempo";
-import { haConflito } from "./agenda";
+import { bloqueioChoca, haConflito } from "./agenda";
 import { compromissosExternos, compromissosQueCruzam } from "./calendario-externo";
 import { janelaOcupada } from "./tempo";
 
@@ -84,10 +84,16 @@ export async function resumoDoDia(dataTexto: string) {
     select: { calendarioExternoUrl: true },
   });
 
-  const [atendimentos, conflitos, externos] = await Promise.all([
+  const [atendimentos, conflitos, externos, bloqueios] = await Promise.all([
     atendimentosDoDia(dataTexto),
     conflitosNoDia(dataTexto),
     compromissosExternos(config?.calendarioExternoUrl, inicioDoDia, fimDoDia),
+    // Um bloqueio que começou ontem e atravessa a madrugada precisa aparecer
+    // hoje: a busca é por quem cruza o dia, não por quem começa nele.
+    prisma.bloqueio.findMany({
+      where: { inicio: { lt: fimDoDia }, fim: { gt: inicioDoDia } },
+      orderBy: { inicio: "asc" },
+    }),
   ]);
 
   // Um atendimento em cima de um compromisso pessoal: avisa, não bloqueia —
@@ -101,10 +107,26 @@ export async function resumoDoDia(dataTexto: string) {
       if (cruzam.length) choquesPessoais.set(a.id, cruzam.map((c) => c.titulo));
     }
   }
+  // Atendimento marcado por cima de um bloqueio: avisa na linha dele, para a
+  // contradição não ficar escondida.
+  const choquesBloqueio = new Map<string, string[]>();
+  for (const a of atendimentos) {
+    if (a.status === "CANCELADO") continue;
+    const batem = bloqueios.filter((b) => bloqueioChoca(b, a));
+    if (batem.length) {
+      choquesBloqueio.set(
+        a.id,
+        batem.map((b) => b.motivo?.trim() || "horário bloqueado"),
+      );
+    }
+  }
+
   const ativos = atendimentos.filter((a) => a.status !== "CANCELADO");
 
   return {
     atendimentos,
+    bloqueios,
+    choquesBloqueio,
     conflitos,
     compromissosPessoais: externos.ok ? externos.compromissos : [],
     erroCalendarioPessoal: externos.ok ? null : externos.erro,
