@@ -62,7 +62,9 @@ async function lerAtendimento(fd: FormData) {
   const sinalCentavos =
     typeof sinalDigitado === "string" && sinalDigitado.trim() !== ""
       ? dinheiro(fd, "sinalCentavos", "Sinal")
-      : calcularSinal(precoCentavos, servico.percentualSinal);
+      : // Sem o valor fixo aqui, um serviço de sinal fixo caía na porcentagem
+        // quando o campo chegava vazio, e gravava um sinal que nunca foi a regra.
+        calcularSinal(precoCentavos, servico.percentualSinal, servico.sinalFixoCentavos);
 
   if (sinalCentavos > precoCentavos) {
     throw new ErroDeCampo("sinalCentavos", "O sinal não pode ser maior que o preço.");

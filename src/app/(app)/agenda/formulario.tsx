@@ -9,7 +9,7 @@ import { estadoInicial, type EstadoFormulario } from "@/lib/formulario";
 import { calcularSinal } from "@/lib/financeiro";
 import { calcularDeslocamento } from "./acao-deslocamento";
 import { precoParaOHorario, type JanelaNormal } from "@/lib/precificacao";
-import { paraCampoReal, paraCentavos } from "@/lib/dinheiro";
+import { formatarReal, paraCampoReal, paraCentavos } from "@/lib/dinheiro";
 import { paraUtc } from "@/lib/tempo";
 
 export type ClienteOpcao = {
@@ -160,6 +160,21 @@ export function FormularioAtendimento({
     horario: inicial.horario,
   });
 
+  /**
+   * Preço combinado à mão não é reescrito por nada.
+   *
+   * Antes, mexer na hora reaplicava a tabela: um atendimento de R$ 180 que
+   * você tinha combinado por R$ 200 voltava para 180 só por mudar de meio-dia
+   * para meio-dia e meia. O valor que você digitou é o acordo com a cliente —
+   * a tabela é sugestão, não ordem.
+   *
+   * Vale o mesmo para um reajuste na tabela de serviços: ele não deve alcançar
+   * atendimento já combinado só porque você abriu para mexer no horário. Por
+   * isso um atendimento que já existe nasce com o preço travado.
+   */
+  const [precoManual, setPrecoManual] = useState(!!atendimento);
+  const [sinalManual, setSinalManual] = useState(!!atendimento);
+
   const servico = servicos.find((s) => s.id === servicoId);
   const cliente = clientes.find((c) => c.id === clienteId);
 
@@ -179,18 +194,36 @@ export function FormularioAtendimento({
     hh: string,
     ondeE: "ESTUDIO" | "DOMICILIO",
     profId: string,
+    /** Trocar de serviço ou de parceira muda a base: aí a tabela volta a valer. */
+    forcar = false,
   ) {
     const r = precoDoMomento(s, dia, hh, ondeE, profId);
+    // Os acréscimos continuam sendo recalculados mesmo com preço travado: é o
+    // que a dica usa para dizer por que a tabela sugere outro valor.
     setAcrescimos({ fora: r.fora, domicilio: r.domicilio, horario: r.horario });
-    setPreco(paraCampoReal(r.centavos));
-    setSinal(
-      paraCampoReal(calcularSinal(r.centavos, s?.percentualSinal ?? 30, s?.sinalFixoCentavos)),
-    );
+
+    if (forcar || !precoManual) setPreco(paraCampoReal(r.centavos));
+    if (forcar || !sinalManual) {
+      setSinal(
+        paraCampoReal(calcularSinal(r.centavos, s?.percentualSinal ?? 30, s?.sinalFixoCentavos)),
+      );
+    }
   }
 
   function escolherServico(id: string) {
     setServicoId(id);
-    reprecificar(servicos.find((x) => x.id === id), data, horaInicio, local);
+    // Serviço diferente é preço diferente: o valor combinado para o anterior
+    // não quer dizer nada aqui, então a tabela volta a mandar.
+    setPrecoManual(false);
+    setSinalManual(false);
+    reprecificarCom(
+      servicos.find((x) => x.id === id),
+      data,
+      horaInicio,
+      local,
+      profissionalId,
+      true,
+    );
   }
 
   function escolherData(novo: string) {
@@ -215,8 +248,11 @@ export function FormularioAtendimento({
 
   function escolherProfissional(id: string) {
     setProfissionalId(id);
-    // Cada parceira cobra o seu: trocar quem atende muda o preço.
-    reprecificarCom(servico, data, horaInicio, local, id);
+    // Cada parceira cobra o seu: trocar quem atende muda a base do preço, e aí
+    // o valor combinado para a anterior deixa de fazer sentido.
+    setPrecoManual(false);
+    setSinalManual(false);
+    reprecificarCom(servico, data, horaInicio, local, id, true);
   }
 
   function escolherCliente(id: string) {
@@ -247,10 +283,11 @@ export function FormularioAtendimento({
     });
   }
 
-  /** Mexer no preço à mão reajusta o sinal pela regra do serviço. */
+  /** Mexer no preço à mão trava o valor e reajusta o sinal, se ele não foi mexido. */
   function escolherPreco(novo: string) {
     setPreco(novo);
-    if (!servico) return;
+    setPrecoManual(true);
+    if (!servico || sinalManual) return;
     try {
       setSinal(
         paraCampoReal(
@@ -259,6 +296,40 @@ export function FormularioAtendimento({
       );
     } catch {
       // Preço no meio da digitação: deixa o sinal como está.
+    }
+  }
+
+  function escolherSinal(novo: string) {
+    setSinal(novo);
+    setSinalManual(true);
+  }
+
+  /**
+   * O que a tabela diria para este serviço, neste dia, nesta hora, neste local.
+   *
+   * Só vira aviso quando difere do que está no campo. Assim você fica sabendo
+   * que o horário novo mudaria o preço, sem que ninguém mude por você.
+   */
+  const sugestao = precoDoMomento(servico, data, horaInicio, local);
+  const precoNoCampo = (() => {
+    try {
+      return paraCentavos(preco);
+    } catch {
+      return null;
+    }
+  })();
+  const tabelaDifere =
+    precoManual && precoNoCampo !== null && precoNoCampo !== sugestao.centavos;
+
+  function usarPrecoDaTabela() {
+    setPreco(paraCampoReal(sugestao.centavos));
+    setPrecoManual(false);
+    if (!sinalManual && servico) {
+      setSinal(
+        paraCampoReal(
+          calcularSinal(sugestao.centavos, servico.percentualSinal, servico.sinalFixoCentavos),
+        ),
+      );
     }
   }
 
@@ -469,9 +540,9 @@ export function FormularioAtendimento({
             dica={
               acrescimos.domicilio > 0 || acrescimos.horario > 0
                 ? [
-                    acrescimos.domicilio > 0 && `+${paraCampoReal(acrescimos.domicilio)} de domicílio`,
+                    acrescimos.domicilio > 0 && `+${formatarReal(acrescimos.domicilio)} de domicílio`,
                     acrescimos.horario > 0 &&
-                      `+${paraCampoReal(acrescimos.horario)} por ser fora de ${descricaoJanela}`,
+                      `+${formatarReal(acrescimos.horario)} por ser fora de ${descricaoJanela}`,
                   ]
                     .filter(Boolean)
                     .join(" e ")
@@ -485,6 +556,25 @@ export function FormularioAtendimento({
               erro={!!erro("precoCentavos")}
               inputMode="decimal"
             />
+
+            {tabelaDifere && (
+              <div className="mt-2 rounded-lg border border-borda bg-superficie-suave px-3 py-2">
+                <p className="text-xs text-texto-suave">
+                  Preço combinado à mão. Pela tabela, aqui seria{" "}
+                  <strong className="font-medium text-texto">
+                    {formatarReal(sugestao.centavos)}
+                  </strong>
+                  .
+                </p>
+                <button
+                  type="button"
+                  onClick={usarPrecoDaTabela}
+                  className="mt-1 text-xs font-medium text-marca underline underline-offset-2"
+                >
+                  Usar o da tabela
+                </button>
+              </div>
+            )}
           </Campo>
 
           <Campo
@@ -501,7 +591,7 @@ export function FormularioAtendimento({
             <Entrada
               name="sinalCentavos"
               value={sinal}
-              onChange={(e) => setSinal(e.target.value)}
+              onChange={(e) => escolherSinal(e.target.value)}
               erro={!!erro("sinalCentavos")}
               inputMode="decimal"
             />
