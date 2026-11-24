@@ -196,13 +196,16 @@ topo do `globals.css`; os componentes só leem os nomes (`--texto`,
 | `CALENDAR_TOKEN` | protege o endereço do `.ics` | calendário do iPhone para |
 | `CRON_SECRET` | protege a rota que mantém o banco acordado | o cron é recusado |
 | `GOOGLE_MAPS_API_KEY` | distância e tempo de deslocamento | **ausente hoje** — o botão devolve erro |
-| `NEXT_PUBLIC_IMG_RETRATO` | foto da tela de entrada | **ausente no local** — tela sem foto, só a paleta |
-| `NEXT_PUBLIC_IMG_ATMOSFERA` | fundo desfocado do app | **ausente no local** |
-| `NEXT_PUBLIC_IMG_ROSTO` | miniatura no cabeçalho | **ausente no local** |
+| `NEXT_PUBLIC_IMG_RETRATO` | foto da tela de entrada | tela sem foto, só a paleta |
+| `NEXT_PUBLIC_IMG_ATMOSFERA` | fundo desfocado do app | app sem o fundo |
+| `NEXT_PUBLIC_IMG_ROSTO` | miniatura no cabeçalho | cabeçalho sem o retrato |
 
 As fotos **não estão no repositório** de propósito: são de uma pessoa real e o
 código é público ([`imagens.ts`](src/lib/imagens.ts) explica). Em
-desenvolvimento, aponte para `/privado/retrato.webp` e companhia.
+desenvolvimento, as três variáveis ficam no **`.env.local`** apontando para
+`/privado/retrato.webp` e companhia, que o Next carrega junto com o `.env`.
+
+O app funciona sem elas: fica só a paleta de cores, e nada quebra.
 
 Outros: [`prisma.config.ts`](prisma.config.ts) (duas conexões, e por quê),
 [`vercel.json`](vercel.json) (região `gru1` e o cron diário),
